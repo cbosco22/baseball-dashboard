@@ -54,8 +54,7 @@ def load_data():
     df['T90_per_PA'] = df['T90s'] / df['PA'].replace(0, np.nan)
     df['T90_per_PA'] = df['T90_per_PA'].fillna(0)
 
-    # Clean numeric columns for sliders
-    df['Age'] = pd.to_numeric(df['Age'], errors='coerce')
+    # Clean height and weight to numeric
     df['ht'] = pd.to_numeric(df['ht'], errors='coerce')
     df['WT'] = pd.to_numeric(df['WT'], errors='coerce')
 
@@ -80,15 +79,12 @@ position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'
 bats_filter = st.sidebar.multiselect("Bats", options=sorted(data['Bats'].dropna().unique()), key="bats")
 throws_filter = st.sidebar.multiselect("Throws", options=sorted(data['Throws'].dropna().unique()), key="throws")
 
-# Age, Height, Weight sliders (with safe min/max)
-age_min = int(data['Age'].min()) if data['Age'].notna().any() else 17
-age_max = int(data['Age'].max()) if data['Age'].notna().any() else 25
+# Height and Weight sliders (Age removed)
 ht_min = int(data['ht'].min()) if data['ht'].notna().any() else 60
 ht_max = int(data['ht'].max()) if data['ht'].notna().any() else 80
 wt_min = int(data['WT'].min()) if data['WT'].notna().any() else 150
 wt_max = int(data['WT'].max()) if data['WT'].notna().any() else 250
 
-age_range = st.sidebar.slider("Age Range", min_value=age_min, max_value=age_max, value=(age_min, age_max), key="age")
 ht_range = st.sidebar.slider("Height (inches)", min_value=ht_min, max_value=ht_max, value=(ht_min, ht_max), key="ht")
 wt_range = st.sidebar.slider("Weight (lbs)", min_value=wt_min, max_value=wt_max, value=(wt_min, wt_max), key="wt")
 
@@ -128,7 +124,6 @@ filtered = data[
     data['role'].isin(role_filter) &
     data['year'].between(*year_filter) &
     (data['G'] >= min_games) &
-    data['Age'].between(age_range[0], age_range[1]) &
     data['ht'].between(ht_range[0], ht_range[1]) &
     data['WT'].between(wt_range[0], wt_range[1])
 ]
@@ -172,7 +167,7 @@ if stat2 != 'None' and stat2 in filtered.columns:
         filtered = filtered[filtered[stat2] <= value2]
 
 # Column selector
-default_cols = ['firstname','lastname','teamName','year','role','G','state','region','draft_Round','is_drafted','T90s','T90_per_PA','posit','Bats','Throws','Age','ht','WT']
+default_cols = ['firstname','lastname','teamName','year','role','G','state','region','draft_Round','is_drafted','T90s','T90_per_PA','posit','Bats','Throws','ht','WT']
 cols = st.multiselect("Columns to show", options=filtered.columns.tolist(), default=default_cols, key="cols")
 
 # Export button
