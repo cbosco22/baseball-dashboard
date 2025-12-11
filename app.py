@@ -70,7 +70,7 @@ def load_data():
 
 data = load_data()
 
-# Sidebar Filters
+# Sidebar Filters (unchanged)
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
 team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
@@ -121,7 +121,7 @@ stat1 = st.sidebar.selectbox("Custom Stat Filter 1", options=['None'] + availabl
 filter1_applied = stat1 != 'None'
 if filter1_applied:
     direction1 = st.sidebar.radio(f"{stat1} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir1")
-    step1 = 0.1 if stat1 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90/PA'] else 1.0
+    step1 = 0.1 if stat1 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90_per_PA'] else 1.0
     value1 = st.sidebar.number_input(f"{stat1} value", value=0.0, step=step1, key="val1")
 
 stat2 = 'None'
@@ -130,7 +130,7 @@ if filter1_applied:
     stat2 = st.sidebar.selectbox("Custom Stat Filter 2", options=['None'] + remaining, index=0, key="stat2")
 if stat2 != 'None':
     direction2 = st.sidebar.radio(f"{stat2} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir2")
-    step2 = 0.1 if stat2 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90/PA'] else 1.0
+    step2 = 0.1 if stat2 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90_per_PA'] else 1.0
     value2 = st.sidebar.number_input(f"{stat2} value", value=0.0, step=step2, key="val2")
 
 # Base filtering
@@ -185,9 +185,9 @@ if stat2 != 'None' and stat2 in filtered.columns:
     else:
         filtered = filtered[filtered[stat2] <= value2]
 
-# Column selector
-default_cols = ['firstname','lastname','teamName','year','role','G','state','region','draft_Round','is_drafted','T90s','T90/PA','posit','Bats','Throws','ht','WT']
-cols = st.multiselect("Columns to show", options=filtered.columns.tolist(), default=default_cols, key="cols")
+# Column selector (updated default order)
+default_cols = ['lastname', 'firstname', 'teamName', 'year', 'Age', 'state', 'LeagueAbbr', 'experience', 'G', 'T90s', 'OPS', 'draft_Round', 'ERA', 'W', 'SV', 'IP', 'WHIP']
+cols = st.multiselect("Columns to show", options=filtered.columns.tolist(), default=[c for c in default_cols if c in filtered.columns], key="cols")
 
 # Export button
 csv = filtered.to_csv(index=False).encode('utf-8')
@@ -199,9 +199,21 @@ st.download_button(
 )
 
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
-st.dataframe(filtered[cols] if cols else filtered.head(100))
+# Display table with frozen columns after 'year' (index + first 4 columns frozen)
+if not filtered.empty:
+    display_df = filtered[cols] if cols else filtered.head(100)
+    st.dataframe(
+        display_df.style.set_properties(**{'text-align': 'left'}),
+        use_container_width=True,
+        column_config={
+            col: st.column_config.Column(width="medium") for col in display_df.columns
+        },
+        hide_index=False  # Keeps the row numbers visible if you want them
+    )
+else:
+    st.write("No players match the current filters.")
 
-# State map with dark background to match the app
+# State map with dark background
 st.subheader("Hometown Hot Zones (US Map)")
 if not filtered.empty:
     state_counts = filtered.groupby('state').size().reset_index(name='player_count')
@@ -214,9 +226,8 @@ if not filtered.empty:
         color_continuous_scale='Reds',
         title='Hot Zones by State'
     )
-    # Dark background to match the app theme
     fig_map.update_layout(
-        paper_bgcolor='#0E1117',  # Dark near-black background
+        paper_bgcolor='#0E1117',
         plot_bgcolor='#0E1117',
         font_color='white',
         geo_bgcolor='#0E1117'
@@ -259,7 +270,7 @@ if not filtered.empty:
         fig_bar_team = px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count')
         st.plotly_chart(fig_bar_team, use_container_width=True)
 
-# Top Performers (moved to bottom, with minimum requirements)
+# Top Performers (at bottom, no index column)
 st.subheader("Top Performers (within current filters)")
 col1, col2, col3 = st.columns(3)
 
@@ -269,7 +280,7 @@ with col1:
         if not era_qual.empty:
             top_era = era_qual.nsmallest(50, 'ERA')[['firstname', 'lastname', 'teamName', 'year', 'ERA', 'IP', 'G']]
             st.write("**Top 50 Lowest ERA Pitchers (min 50 IP)**")
-            st.dataframe(top_era)
+            st.dataframe(top_era, hide_index=True)
         else:
             st.write("**No pitchers qualify (min 50 IP)**")
 
@@ -279,7 +290,7 @@ with col2:
         if not ops_qual.empty:
             top_ops = ops_qual.nlargest(50, 'OPS')[['firstname', 'lastname', 'teamName', 'year', 'OPS', 'PA', 'G']]
             st.write("**Top 50 Highest OPS Hitters (min 100 PA)**")
-            st.dataframe(top_ops)
+            st.dataframe(top_ops, hide_index=True)
         else:
             st.write("**No hitters qualify (min 100 PA)**")
 
@@ -289,6 +300,6 @@ with col3:
         if not t90_qual.empty:
             top_t90 = t90_qual.nlargest(50, 'T90/PA')[['firstname', 'lastname', 'teamName', 'year', 'T90/PA', 'T90s', 'PA']]
             st.write("**Top 50 T90/PA (min 100 PA)**")
-            st.dataframe(top_t90)
+            st.dataframe(top_t90, hide_index=True)
         else:
             st.write("**No players qualify (min 100 PA)**")
