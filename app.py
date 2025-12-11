@@ -5,6 +5,12 @@ import numpy as np
 
 st.title("College Baseball Player Dashboard")
 
+# Reset button in sidebar
+st.sidebar.header("Filters")
+if st.sidebar.button("Reset All Filters"):
+    st.session_state.clear()
+    st.rerun()
+
 @st.cache_data
 def load_data():
     pitchers = pd.read_csv('pitchers.csv')
@@ -58,13 +64,6 @@ def load_data():
 data = load_data()
 
 # Sidebar Filters
-st.sidebar.header("Filters")
-
-# Reset button in sidebar
-if st.sidebar.button("Reset All Filters"):
-    st.session_state.clear()
-    st.rerun()
-
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
 team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
@@ -120,15 +119,13 @@ if stat2 != 'None':
     value2 = st.sidebar.number_input(f"{stat2} value", value=0.0, step=step2, key="val2")
 
 # Base filtering
-filtered = data.copy()  # Start with full data
-
-filtered = filtered[
-    filtered['role'].isin(role_filter) &
-    filtered['year'].between(*year_filter) &
-    (filtered['G'] >= min_games)
+filtered = data[
+    data['role'].isin(role_filter) &
+    data['year'].between(*year_filter) &
+    (data['G'] >= min_games)
 ]
 
-# Apply optional filters if selected
+# Apply optional filters
 if league_filter:
     filtered = filtered[filtered['LeagueAbbr'].isin(league_filter)]
 if team_filter:
@@ -146,19 +143,19 @@ if throws_filter:
 if name_search:
     filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) | filtered['lastname'].str.contains(name_search, case=False, na=False)]
 
-# Height and Weight (only apply if data exists)
+# Height and Weight (only apply if values exist)
 if filtered['ht'].notna().any():
     filtered = filtered[filtered['ht'].between(ht_range[0], ht_range[1])]
 if filtered['WT'].notna().any():
     filtered = filtered[filtered['WT'].between(wt_range[0], wt_range[1])]
 
-# Draft status
+# Draft status filter
 if drafted_filter == "Drafted Only":
     filtered = filtered[filtered['is_drafted']]
 elif drafted_filter == "Undrafted Only":
     filtered = filtered[~filtered['is_drafted']]
 
-# Draft round
+# Draft round filter
 filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
 
 # Custom stat filters
@@ -212,11 +209,11 @@ with col3:
         st.write("**Top 50 T90 per PA**")
         st.dataframe(top_t90)
 
-# State map
+# State map (fixed typo in 'player_count')
 st.subheader("Hometown Hot Zones (US Map)")
 if not filtered.empty:
     state_counts = filtered.groupby('state').size().reset_index(name='player_count')
-    fig_map = px.choropleth(state_counts, locations='state', locationmode='USA-states', color='player.Wait_count',
+    fig_map = px.choropleth(state_counts, locations='state', locationmode='USA-states', color='player_count',
                             scope='usa', color_continuous_scale='Reds', title='Hot Zones by State')
     st.plotly_chart(fig_map, use_container_width=True)
 
