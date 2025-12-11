@@ -88,11 +88,6 @@ if 'ERA' in filtered.columns:
 if 'OPS' in filtered.columns:
     filtered = filtered[(filtered['role'] != 'Hitter') | (filtered['OPS'] >= ops_min)]
 
-# Career view (temporarily disabled - let me know if you want it back)
-career_view = st.checkbox("Show Career Aggregated View")
-if career_view:
-    st.info("Career view temporarily disabled for stability - I can add it back!")
-
 # Sort
 sort_by = st.sidebar.selectbox("Sort by", ['None','ERA','OPS','W','SO','Bavg','G'])
 if sort_by != 'None':
@@ -114,14 +109,14 @@ if not filtered.empty:
                             scope='usa', color_continuous_scale='Reds', title='Hot Zones by State')
     st.plotly_chart(fig_map, use_container_width=True)
 
-# Recruitment patterns
+# Recruitment patterns (existing top states per team)
 st.subheader("Recruitment Patterns (Top States per Team)")
 if not filtered.empty:
     top_states = filtered.groupby(['teamName', 'state']).size().reset_index(name='count').sort_values('count', ascending=False).head(20)
     fig_bar = px.bar(top_states, x='state', y='count', color='teamName', title='Top Recruiting States')
     st.plotly_chart(fig_bar, use_container_width=True)
 
-# Region graphs
+# Players by Region (existing)
 st.subheader("Players by Region")
 if not filtered.empty:
     region_counts = filtered['region'].value_counts().reset_index()
@@ -133,5 +128,19 @@ if not filtered.empty:
     with col2:
         fig_bar_reg = px.bar(region_counts.sort_values('count', ascending=False), x='region', y='count', color='region', title='Player Count by Region')
         st.plotly_chart(fig_bar_reg, use_container_width=True)
+
+# NEW: Players by Team (mirrors Players by Region section)
+st.subheader("Players by Team (within current filters)")
+if not filtered.empty:
+    team_counts = filtered['teamName'].value_counts().reset_index()
+    team_counts.columns = ['teamName', 'count']
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        fig_pie_team = px.pie(team_counts.head(20), values='count', names='teamName', title='Top 20 Teams by Player Count (%)')
+        st.plotly_chart(fig_pie_team, use_container_width=True)
+    with col2:
+        fig_bar_team = px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count')
+        st.plotly_chart(fig_bar_team, use_container_width=True)
 else:
     st.write("No data matches filters.")
