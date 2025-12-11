@@ -18,12 +18,12 @@ def load_data():
     us_states = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
     all_players = all_players[all_players['state'].isin(us_states)]
     
-    # Clean draft
+    # Clean draft - fill NaN rounds with 0 for slider logic
     all_players['draft_year'] = pd.to_numeric(all_players['draft_year'], errors='coerce')
-    all_players['draft_Round'] = pd.to_numeric(all_players['draft_Round'], errors='coerce')
+    all_players['draft_Round'] = pd.to_numeric(all_players['draft_Round'], errors='coerce').fillna(0)
     all_players['is_drafted'] = all_players['draft_year'].notna()
     
-    # Add region mapping (refined from your table)
+    # Region mapping
     region_map = {
         'East': ['KY', 'OH', 'PA', 'TN', 'WV'],
         'Mid Atlantic': ['DE', 'MD', 'NJ', 'NY', 'VA'],
@@ -52,7 +52,6 @@ league_filter = st.sidebar.multiselect("League (leave blank for ALL)", options=s
 team_filter = st.sidebar.multiselect("Team/School (leave blank for ALL)", options=sorted(data['teamName'].unique()))
 year_filter = st.sidebar.slider("Year Range", min_value=int(data['year'].min()), max_value=int(data['year'].max()), value=(int(data['year'].min()), int(data['year'].max())))
 
-# State and Region filters
 state_filter = st.sidebar.multiselect("State (leave blank for ALL)", options=sorted(data['state'].unique()))
 region_filter = st.sidebar.multiselect("Region (leave blank for ALL)", options=sorted(data['region'].unique()))
 
@@ -73,8 +72,6 @@ if league_filter:
     filtered_data = filtered_data[filtered_data['LeagueAbbr'].isin(league_filter)]
 if team_filter:
     filtered_data = filtered_data[filtered_data['teamName'].isin(team_filter)]
-
-# State/Region filter
 if state_filter:
     filtered_data = filtered_data[filtered_data['state'].isin(state_filter)]
 if region_filter:
@@ -86,11 +83,13 @@ if drafted_filter == "Drafted Only":
 elif drafted_filter == "Undrafted Only":
     filtered_data = filtered_data[~filtered_data['is_drafted']]
 
-# Draft round
+# Draft round slider - only show if drafted players exist
 if filtered_data['is_drafted'].any():
     max_round = int(filtered_data['draft_Round'].max())
-    draft_round_range = st.sidebar.slider("Draft Round Range", min_value=1, max_value=max_round, value=(1, max_round))
+    draft_round_range = st.sidebar.slider("Draft Round Range (0 = not drafted)", min_value=0, max_value=max_round, value=(0, max_round))
     filtered_data = filtered_data[filtered_data['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
+else:
+    st.sidebar.info("No drafted players in current view")
 
 # Stat filters
 if 'ERA' in filtered_data.columns:
@@ -98,7 +97,7 @@ if 'ERA' in filtered_data.columns:
 if 'OPS' in filtered_data.columns:
     filtered_data = filtered_data[(filtered_data['role'] != 'Hitter') | (filtered_data['OPS'] >= ops_min)]
 
-# Career view toggle
+# Career view
 career_view = st.checkbox("Show Career Aggregated View (one row per player at school)")
 
 if career_view:
@@ -143,7 +142,7 @@ if sort_stat != 'None':
     ascending = (sort_stat in ['ERA'])
     filtered_data = filtered_data.sort_values(sort_stat, ascending=ascending, na_position='last')
 
-# Customizable columns
+# Custom columns
 all_columns = filtered_data.columns.tolist()
 default_columns = ['firstname', 'lastname', 'teamName', 'year', 'role', 'G', 'state', 'region', 'draft_Round']
 selected_columns = st.multiselect("Choose columns to display in table", options=all_columns, default=default_columns)
@@ -161,17 +160,15 @@ if not filtered_data.empty:
     fig_map = px.choropleth(state_counts, locations='state', locationmode='USA-states', color='player_count',
                             scope='usa', color_continuous_scale='Reds', title='Hot Zones by State')
     st.plotly_chart(fig_map)
-else:
-    st.write("No data matches filters.")
 
-# Recruitment patterns
+# Recruitment
 st.subheader("Recruitment Patterns (Top States per Team)")
 if not filtered_data.empty:
     top_states = filtered_data.groupby(['teamName', 'state']).size().reset_index(name='count').sort_values('count', ascending=False).head(20)
     fig_bar = px.bar(top_states, x='state', y='count', color='teamName', title='Top Recruiting States')
     st.plotly_chart(fig_bar)
 
-# Players by Region
+# Region graphs
 st.subheader("Players by Region")
 if not filtered_data.empty:
     region_counts = filtered_data['region'].value_counts().reset_index()
@@ -184,5 +181,3 @@ if not filtered_data.empty:
     with col2:
         fig_bar_reg = px.bar(region_counts.sort_values('count', ascending=False), x='region', y='count', color='region', title='Player Count by Region')
         st.plotly_chart(fig_bar_reg, use_container_width=True)
-else:
-    st.write("No data for regions.")
