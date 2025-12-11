@@ -185,10 +185,17 @@ if stat2 != 'None' and stat2 in filtered.columns:
     else:
         filtered = filtered[filtered[stat2] <= value2]
 
-# Column selector with your exact default order
+# Column selector - smaller, with your exact default order
 default_cols = ['lastname', 'firstname', 'teamName', 'year', 'Age', 'state', 'LeagueAbbr', 'experience', 'G', 'T90s', 'OPS', 'draft_Round', 'ERA', 'W', 'SV', 'IP', 'WHIP']
 available_default = [c for c in default_cols if c in filtered.columns]
-cols = st.multiselect("Columns to show", options=filtered.columns.tolist(), default=available_default, key="cols")
+
+with st.expander("Columns to show (click to expand)", expanded=False):
+    cols = st.multiselect(
+        "",
+        options=filtered.columns.tolist(),
+        default=available_default,
+        key="cols"
+    )
 
 # Export button
 csv = filtered.to_csv(index=False).encode('utf-8')
@@ -200,12 +207,24 @@ st.download_button(
 )
 
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
+
+# Final display table with frozen columns after year
 display_df = filtered[cols] if cols else filtered.head(100)
-st.dataframe(
-    display_df,
-    use_container_width=True,
-    hide_index=True  # removes the gray left index
-)
+
+# Split into frozen (up to year) and scrollable columns
+frozen_cols = ['lastname', 'firstname', 'teamName', 'year']
+frozen_available = [c for c in frozen_cols if c in display_df.columns]
+scrollable_cols = [c for c in display_df.columns if c not in frozen_available]
+
+col1, col2 = st.columns([1, 3])  # Adjust ratio for frozen vs scrollable
+
+with col1:
+    st.write("**Frozen Columns**")
+    st.dataframe(display_df[frozen_available], use_container_width=True, hide_index=True)
+
+with col2:
+    st.write("**Scrollable Columns**")
+    st.dataframe(display_df[scrollable_cols], use_container_width=True, hide_index=True)
 
 # State map with dark background
 st.subheader("Hometown Hot Zones (US Map)")
@@ -280,7 +299,7 @@ with col1:
 
 with col2:
     if 'OPS' in filtered.columns and 'PA' in filtered.columns:
-        ops_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
+        ops_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >=  100)]
         if not ops_qual.empty:
             top_ops = ops_qual.nlargest(50, 'OPS')[['firstname', 'lastname', 'teamName', 'year', 'OPS', 'PA', 'G']]
             st.write("**Top 50 Highest OPS Hitters (min 100 PA)**")
