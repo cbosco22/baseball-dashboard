@@ -68,7 +68,7 @@ def load_data():
 
     return df
 
-data = load_data()
+data = load adă_data()
 
 # Sidebar Filters
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
@@ -78,16 +78,9 @@ year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data[
 state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'].unique()), key="state")
 region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()), key="region")
 min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0, key="min_games")
-drafted_filter = st.sidebar.radio("Drafted Status", ["All", "Drafted Only", "Undrafted Only"], key="drafted")
 
-# Position quick search
-position_search = st.sidebar.text_input("Quick Position Search (e.g., SS)", key="position_search")
-unique_positions = sorted(data['posit'].dropna().unique())
-if position_search:
-    matching_positions = [p for p in unique_positions if position_search.upper() in p]
-    position_filter = st.sidebar.multiselect("Position", options=unique_positions, default=matching_positions, key="posit")
-else:
-    position_filter = st.sidebar.multiselect("Position", options=unique_positions, key="posit")
+# Position filter (regular multiselect - quick search removed)
+position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'].dropna().unique()), key="posit")
 
 # Bats and Throws
 bats_filter = st.sidebar.multiselect("Bats", options=['L', 'R', 'S'], key="bats")
@@ -105,7 +98,7 @@ wt_range = st.sidebar.slider("Weight (lbs)", min_value=wt_min, max_value=wt_max,
 # Player name search
 name_search = st.sidebar.text_input("Search Player Name", key="name_search")
 
-# Draft round slider
+# Draft round slider only (draft status radio removed)
 draft_round_range = st.sidebar.slider(
     "Draft Round Range (0 = undrafted, 1+ = drafted round)",
     min_value=0,
@@ -163,13 +156,7 @@ if filtered['ht'].notna().any():
 if filtered['WT'].notna().any():
     filtered = filtered[filtered['WT'].between(wt_range[0], wt_range[1])]
 
-# Draft status filter
-if drafted_filter == "Drafted Only":
-    filtered = filtered[filtered['is_drafted']]
-elif drafted_filter == "Undrafted Only":
-    filtered = filtered[~filtered['is_drafted']]
-
-# Draft round filter
+# Draft round filter (only slider now)
 filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
 
 # Custom stat filters
@@ -185,7 +172,7 @@ if stat2 != 'None' and stat2 in filtered.columns:
     else:
         filtered = filtered[filtered[stat2] <= value2]
 
-# Column selector in expander (smaller, collapsed by default)
+# Column selector in expander
 with st.expander("Columns to show (click to expand)", expanded=False):
     default_cols = ['lastname', 'firstname', 'teamName', 'year', 'Age', 'state', 'LeagueAbbr', 'experience', 'G', 'T90s', 'OPS', 'draft_Round', 'ERA', 'W', 'SV', 'IP', 'WHIP']
     available_default = [c for c in default_cols if c in filtered.columns]
@@ -202,7 +189,7 @@ st.download_button(
 
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
 
-# Single table with horizontal scroll - first 4 columns naturally "frozen" on left
+# Single table with horizontal scroll
 display_df = filtered[cols] if cols else filtered.head(100)
 st.dataframe(
     display_df,
