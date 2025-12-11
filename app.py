@@ -73,7 +73,7 @@ if drafted_filter == "Drafted Only":
 elif drafted_filter == "Undrafted Only":
     filtered = filtered[~filtered['is_drafted']]
 
-# Draft round slider — ONLY if drafted players remain after status filter
+# Draft round slider — ONLY if drafted players remain
 if filtered['is_drafted'].any():
     max_round = int(filtered['draft_Round'].max())
     draft_round_range = st.sidebar.slider(
@@ -92,10 +92,10 @@ if 'ERA' in filtered.columns:
 if 'OPS' in filtered.columns:
     filtered = filtered[(filtered['role'] != 'Hitter') | (filtered['OPS'] >= ops_min)]
 
-# Career view (kept simple — add back full aggregation if you want)
+# Career view (temporarily disabled to avoid any issues — we can add back later)
 career_view = st.checkbox("Show Career Aggregated View")
 if career_view:
-    st.write("Career view not implemented in this version — let me know if you want it back!")
+    st.info("Career view temporarily disabled — let me know if you want it back!")
 
 # Sort
 sort_by = st.sidebar.selectbox("Sort by", ['None','ERA','OPS','W','SO','Bavg','G'])
