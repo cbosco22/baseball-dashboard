@@ -54,15 +54,34 @@ region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['regi
 min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0)
 drafted_filter = st.sidebar.radio("Drafted Status", ["All", "Drafted Only", "Undrafted Only"])
 
-# NEW: Max ERA for pitchers
-max_era = st.sidebar.number_input("Max ERA (Pitchers - lower is better)", value=20.0, step=0.1)
+# Draft round slider
+draft_round_range = st.sidebar.slider(
+    "Draft Round Range (0 = undrafted, 1+ = drafted round)",
+    min_value=0,
+    max_value=70,
+    value=(0, 70)
+)
 
-# NEW: Custom stat filter dropdown
-available_stats = ['ERA', 'OPS', 'W', 'SO', 'BB', 'HR', 'RBI', 'Bavg', 'WHIP', 'G']
-stat_to_filter = st.sidebar.selectbox("Custom Stat Filter", options=['None'] + available_stats)
-if stat_to_filter != 'None':
-    greater_than = st.sidebar.radio(f"{stat_to_filter} greater than or less than?", options=["Greater than or equal to", "Less than or equal to"])
-    stat_value = st.sidebar.number_input(f"{stat_to_filter} value", value=0.0, step=0.1 if stat_to_filter in ['ERA', 'OPS', 'Bavg', 'WHIP'] else 1.0)
+# Available stats for custom filters
+available_stats = ['ERA', 'OPS', 'W', 'L', 'SO', 'BB', 'HR', 'RBI', 'SB', 'CS', 'Bavg', 'Slg', 'obp', 'WHIP', 'IP', 'H', 'R', 'ER', 'G', 'GS']
+
+# Custom Stat Filter 1
+stat1 = st.sidebar.selectbox("Custom Stat Filter 1", options=['None'] + available_stats, index=0)
+filter1_applied = False
+if stat1 != 'None':
+    direction1 = st.sidebar.radio(f"{stat1} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir1")
+    step1 = 0.1 if stat1 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP'] else 1.0
+    value1 = st.sidebar.number_input(f"{stat1} value", value=0.0, step=step1, key="val1")
+    filter1_applied = True
+
+# Custom Stat Filter 2 (only shows if Filter 1 is used)
+stat2 = 'None'
+if filter1_applied:
+    stat2 = st.sidebar.selectbox("Custom Stat Filter 2", options=['None'] + [s for s in available_stats if s != stat1], index=0)
+if stat2 != 'None':
+    direction2 = st.sidebar.radio(f"{stat2} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir2")
+    step2 = 0.1 if stat2 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP'] else 1.0
+    value2 = st.sidebar.number_input(f"{stat2} value", value=0.0, step=step2, key="val2")
 
 # Base filtering
 filtered = data[
@@ -81,25 +100,21 @@ if drafted_filter == "Drafted Only":
 elif drafted_filter == "Undrafted Only":
     filtered = filtered[~filtered['is_drafted']]
 
-# Draft round slider
-draft_round_range = st.sidebar.slider(
-    "Draft Round Range (0 = undrafted, 1+ = drafted round)",
-    min_value=0,
-    max_value=70,
-    value=(0, 70)
-)
+# Draft round filter
 filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
 
-# Max ERA filter (for pitchers only)
-if 'ERA' in filtered.columns:
-    filtered = filtered[(filtered['role'] != 'Pitcher') | (filtered['ERA'] <= max_era)]
-
-# Custom stat filter
-if stat_to_filter != 'None' and stat_to_filter in filtered.columns:
-    if greater_than == "Greater than or equal to":
-        filtered = filtered[filtered[stat_to_filter] >= stat_value]
+# Apply custom stat filters
+if stat1 != 'None' and stat1 in filtered.columns:
+    if direction1 == "Greater than or equal to":
+        filtered = filtered[filtered[stat1] >= value1]
     else:
-        filtered = filtered[filtered[stat_to_filter] <= stat_value]
+        filtered = filtered[filtered[stat1] <= value1]
+
+if stat2 != 'None' and stat2 in filtered.columns:
+    if direction2 == "Greater than or equal to":
+        filtered = filtered[filtered[stat2] >= value2]
+    else:
+        filtered = filtered[filtered[stat2] <= value2]
 
 # Sort
 sort_by = st.sidebar.selectbox("Sort by", ['None','ERA','OPS','W','SO','Bavg','G'])
@@ -109,7 +124,7 @@ if sort_by != 'None':
 
 # Column selector
 default_cols = ['firstname','lastname','teamName','year','role','G','state','region','draft_Round','is_drafted']
-cols = st.multiselect("Columns to show", options=filtered.columns.tolist(), default=default_cols)
+cols = st.mult iselect("Columns to show", options=filtered.columns.tolist(), default=default_cols)
 
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
 st.dataframe(filtered[cols] if cols else filtered.head(100))
@@ -118,7 +133,7 @@ st.dataframe(filtered[cols] if cols else filtered.head(100))
 st.subheader("Hometown Hot Zones (US Map)")
 if not filtered.empty:
     state_counts = filtered.groupby('state').size().reset_index(name='player_count')
-    fig_map = px.choropleth(state_counts, locations='state', locationmode='USA-states', color='player_count',
+    fig_map = px.choropleth,b state_counts, locations='state', locationmode='USA-states', color='player_count',
                             scope='usa', color_continuous_scale='Reds', title='Hot Zones by State')
     st.plotly_chart(fig_map, use_container_width=True)
 
