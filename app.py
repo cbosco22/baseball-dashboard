@@ -5,11 +5,6 @@ import numpy as np
 
 st.title("College Baseball Player Dashboard")
 
-# Reset button
-if st.button("Reset All Filters"):
-    st.session_state.clear()
-    st.rerun()
-
 @st.cache_data
 def load_data():
     pitchers = pd.read_csv('pitchers.csv')
@@ -54,7 +49,7 @@ def load_data():
     df['T90_per_PA'] = df['T90s'] / df['PA'].replace(0, np.nan)
     df['T90_per_PA'] = df['T90_per_PA'].fillna(0)
 
-    # Clean height and weight to numeric
+    # Clean height and weight
     df['ht'] = pd.to_numeric(df['ht'], errors='coerce')
     df['WT'] = pd.to_numeric(df['WT'], errors='coerce')
 
@@ -64,6 +59,11 @@ data = load_data()
 
 # Sidebar Filters
 st.sidebar.header("Filters")
+
+# Reset button in sidebar
+if st.sidebar.button("Reset All Filters"):
+    st.session_state.clear()
+    st.rerun()
 
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
@@ -79,7 +79,7 @@ position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'
 bats_filter = st.sidebar.multiselect("Bats", options=sorted(data['Bats'].dropna().unique()), key="bats")
 throws_filter = st.sidebar.multiselect("Throws", options=sorted(data['Throws'].dropna().unique()), key="throws")
 
-# Height and Weight sliders (Age removed)
+# Height and Weight sliders - safe defaults
 ht_min = int(data['ht'].min()) if data['ht'].notna().any() else 60
 ht_max = int(data['ht'].max()) if data['ht'].notna().any() else 80
 wt_min = int(data['WT'].min()) if data['WT'].notna().any() else 150
@@ -120,13 +120,15 @@ if stat2 != 'None':
     value2 = st.sidebar.number_input(f"{stat2} value", value=0.0, step=step2, key="val2")
 
 # Base filtering
-filtered = data[
-    data['role'].isin(role_filter) &
-    data['year'].between(*year_filter) &
-    (data['G'] >= min_games) &
-    data['ht'].between(ht_range[0], ht_range[1]) &
-    data['WT'].between(wt_range[0], wt_range[1])
+filtered = data.copy()  # Start with full data
+
+filtered = filtered[
+    filtered['role'].isin(role_filter) &
+    filtered['year'].between(*year_filter) &
+    (filtered['G'] >= min_games)
 ]
+
+# Apply optional filters if selected
 if league_filter:
     filtered = filtered[filtered['LeagueAbbr'].isin(league_filter)]
 if team_filter:
@@ -144,13 +146,19 @@ if throws_filter:
 if name_search:
     filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) | filtered['lastname'].str.contains(name_search, case=False, na=False)]
 
-# Draft status filter
+# Height and Weight (only apply if data exists)
+if filtered['ht'].notna().any():
+    filtered = filtered[filtered['ht'].between(ht_range[0], ht_range[1])]
+if filtered['WT'].notna().any():
+    filtered = filtered[filtered['WT'].between(wt_range[0], wt_range[1])]
+
+# Draft status
 if drafted_filter == "Drafted Only":
     filtered = filtered[filtered['is_drafted']]
 elif drafted_filter == "Undrafted Only":
     filtered = filtered[~filtered['is_drafted']]
 
-# Draft round filter
+# Draft round
 filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
 
 # Custom stat filters
@@ -208,7 +216,7 @@ with col3:
 st.subheader("Hometown Hot Zones (US Map)")
 if not filtered.empty:
     state_counts = filtered.groupby('state').size().reset_index(name='player_count')
-    fig_map = px.choropleth(state_counts, locations='state', locationmode='USA-states', color='player_count',
+    fig_map = px.choropleth(state_counts, locations='state', locationmode='USA-states', color='player.Wait_count',
                             scope='usa', color_continuous_scale='Reds', title='Hot Zones by State')
     st.plotly_chart(fig_map, use_container_width=True)
 
