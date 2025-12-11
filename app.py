@@ -182,48 +182,43 @@ if not filtered.empty:
         fig_bar_team = px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count')
         st.plotly_chart(fig_bar_team, use_container_width=True)
 
-# AI Assistant (moved to the end so 'filtered' is defined)
-st.sidebar.header("AI Assistant (powered by Grok)")
+# ——————————————————————— FREE AI ASSISTANT (Hugging Face) ———————————————————————
+st.sidebar.header("AI Assistant (Free – Hugging Face)")
 
-if "grok_api_key" not in st.session_state:
-    api_key = st.sidebar.text_input("Enter your Grok API key (from console.x.ai)", type="password")
-    if api_key:
-        st.session_state.grok_api_key = api_key
-        st.sidebar.success("API key saved for this session!")
-else:
-    st.sidebar.success("API key loaded")
-    api_key = st.session_state.grok_api_key
+if "hf_chat" not in st.session_state:
+    st.session_state.hf_chat = []
 
-if "ai_chat" not in st.session_state:
-    st.session_state.ai_chat = []
+user_question = st.sidebar.text_input("Ask anything about the current filtered data", key="hf_input")
 
-if api_key:
-    user_question = st.sidebar.text_input("Ask about the current filtered data", key="ai_question")
-    if st.sidebar.button("Send"):
-        if user_question:
-            with st.sidebar:
-                with st.spinner("Asking Grok..."):
-                    data_summary = f"Current filtered data: {len(filtered)} players. Columns: {', '.join(filtered.columns)}. Role breakdown: {filtered['role'].value_counts().to_dict()}. Question: {user_question}"
-                    url = "https://api.x.ai/v1/chat/completions"
-                    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-                    payload = {
-                        "model": "grok-beta",
-                        "messages": [{"role": "user", "content": data_summary}],
-                        "temperature": 0.5
-                    }
-                    try:
-                        response = requests.post(url, headers=headers, json=payload, timeout=30)
-                        if response.status_code == 200:
-                            answer = response.json()['choices'][0]['message']['content']
-                        else:
-                            answer = f"API error: {response.status_code} - {response.text}"
-                    except Exception as e:
-                        answer = f"Request error: {str(e)}"
-                    st.session_state.ai_chat.append({"q": user_question, "a": answer})
-                    st.rerun()
+if st.sidebar.button("Send", key="hf_send"):
+    if user_question.strip():
+        with st.sidebar:
+            with st.spinner("Thinking…"):
+                from huggingface_hub import InferenceClient
 
-if st.session_state.ai_chat:
+                # Tiny safe summary – never crashes
+                summary = f"""
+                Current data: {len(filtered)} players
+                Columns: {', '.join(filtered.columns.tolist())}
+                Roles: {filtered['role'].value_counts().to_dict()}
+                Years: {filtered['year'].min()}–{filtered['year'].max()}
+                Question: {user_question}
+                Answer concisely, use tables when helpful.
+                """
+
+                client = InferenceClient(model="mistralai/Mistral-7B-Instruct-v0.1")
+                answer = client.text_generation(
+                    summary,
+                    max_new_tokens=500,
+                    temperature=0.3,
+                    stop_sequences=["\n\n"]
+                )
+
+                st.session_state.hf_chat.append({"question": user_question, "answer": answer})
+
+# Show chat history (last 10)
+if st.session_state.hf_chat:
     st.sidebar.subheader("Chat History")
-    for chat in st.session_state.ai_chat[-10:]:
-        with st.sidebar.expander(chat["q"][:60] + ("..." if len(chat["q"]) > 60 else "")):
-            st.write(chat["a"])
+    for item in st.session_state.hf_chat[-10:]:
+        with st.sidebar.expander(item["question"][:70] + ("..." if len(item["question"]) > 70 else "")):
+            st.write(item["answer"])
