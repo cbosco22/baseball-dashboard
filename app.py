@@ -46,10 +46,10 @@ df = load_data()
 # ====================== PINPOINT MAP (fixed & beautiful) ======================
 st.subheader(f"Player High School Locations • {len(filtered_data):,} players")
 
-if not filtered.empty:
+if not filtered_data.empty:
     # For now, use state-level centers (we'll add real city geocoding next)
     # This gives nice clustered pins by state with counts
-    state_counts = filtered['state'].value_counts().reset_index()
+    state_counts = filtered_data['state'].value_counts().reset_index()
     state_counts.columns = ['state', 'count']
 
     fig = px.scatter_geo(state_counts,
