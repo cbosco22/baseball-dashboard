@@ -196,7 +196,7 @@ if st.sidebar.button("Send", key="hf_send"):
             with st.spinner("Thinking…"):
                 from huggingface_hub import InferenceClient
 
-                # Tiny safe summary – never crashes
+                # Tiny safe summary
                 summary = f"""
                 Current data: {len(filtered)} players
                 Columns: {', '.join(filtered.columns.tolist())}
@@ -206,13 +206,17 @@ if st.sidebar.button("Send", key="hf_send"):
                 Answer concisely, use tables when helpful.
                 """
 
-                client = InferenceClient(model="mistralai/Mistral-7B-Instruct-v0.1")
-                answer = client.text_generation(
-                    summary,
-                    max_new_tokens=500,
-                    temperature=0.3,
-                    stop_sequences=["\n\n"]
-                )
+                # FIXED: Use "gpt2" (always works for text generation)
+                client = InferenceClient(model="gpt2")
+                try:
+                    answer = client.text_generation(
+                        summary,
+                        max_new_tokens=300,
+                        temperature=0.7,
+                        do_sample=True
+                    )
+                except Exception as e:
+                    answer = f"Error: {str(e)}. Try a simpler question."
 
                 st.session_state.hf_chat.append({"question": user_question, "answer": answer})
 
