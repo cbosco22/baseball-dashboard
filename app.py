@@ -66,9 +66,8 @@ def load_data():
     # Clean and standardize position
     df['posit'] = df['posit'].str.upper().str.strip()
 
-    # Fix Miami / Miami-Ohio duplication
-    # Change teamName to "Miami-Ohio" when LeagueAbbr is "MAC"
-    df.loc[df['LeagueAbbr'] == 'MAC', 'teamName'] = 'Miami-Ohio'
+    # Fix Miami / Miami-Ohio: Only change if teamName is "Miami" AND LeagueAbbr is "MAC"
+    df.loc[(df['teamName'] == 'Miami') & (df['LeagueAbbr'] == 'MAC'), 'teamName'] = 'Miami-Ohio'
 
     return df
 
