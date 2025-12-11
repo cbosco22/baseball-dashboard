@@ -53,8 +53,16 @@ state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'
 region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()))
 min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0)
 drafted_filter = st.sidebar.radio("Drafted Status", ["All", "Drafted Only", "Undrafted Only"])
-era_min = st.sidebar.number_input("Min ERA (Pitchers)", value=0.0, step=0.1)
-ops_min = st.sidebar.number_input("Min OPS (Hitters)", value=0.0, step=0.1)
+
+# NEW: Max ERA for pitchers
+max_era = st.sidebar.number_input("Max ERA (Pitchers - lower is better)", value=20.0, step=0.1)
+
+# NEW: Custom stat filter dropdown
+available_stats = ['ERA', 'OPS', 'W', 'SO', 'BB', 'HR', 'RBI', 'Bavg', 'WHIP', 'G']
+stat_to_filter = st.sidebar.selectbox("Custom Stat Filter", options=['None'] + available_stats)
+if stat_to_filter != 'None':
+    greater_than = st.sidebar.radio(f"{stat_to_filter} greater than or less than?", options=["Greater than or equal to", "Less than or equal to"])
+    stat_value = st.sidebar.number_input(f"{stat_to_filter} value", value=0.0, step=0.1 if stat_to_filter in ['ERA', 'OPS', 'Bavg', 'WHIP'] else 1.0)
 
 # Base filtering
 filtered = data[
@@ -73,7 +81,7 @@ if drafted_filter == "Drafted Only":
 elif drafted_filter == "Undrafted Only":
     filtered = filtered[~filtered['is_drafted']]
 
-# Draft round slider - ALWAYS visible, fixed range 0-70
+# Draft round slider
 draft_round_range = st.sidebar.slider(
     "Draft Round Range (0 = undrafted, 1+ = drafted round)",
     min_value=0,
@@ -82,11 +90,16 @@ draft_round_range = st.sidebar.slider(
 )
 filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
 
-# Stat filters
+# Max ERA filter (for pitchers only)
 if 'ERA' in filtered.columns:
-    filtered = filtered[(filtered['role'] != 'Pitcher') | (filtered['ERA'] >= era_min)]
-if 'OPS' in filtered.columns:
-    filtered = filtered[(filtered['role'] != 'Hitter') | (filtered['OPS'] >= ops_min)]
+    filtered = filtered[(filtered['role'] != 'Pitcher') | (filtered['ERA'] <= max_era)]
+
+# Custom stat filter
+if stat_to_filter != 'None' and stat_to_filter in filtered.columns:
+    if greater_than == "Greater than or equal to":
+        filtered = filtered[filtered[stat_to_filter] >= stat_value]
+    else:
+        filtered = filtered[filtered[stat_to_filter] <= stat_value]
 
 # Sort
 sort_by = st.sidebar.selectbox("Sort by", ['None','ERA','OPS','W','SO','Bavg','G'])
@@ -109,14 +122,14 @@ if not filtered.empty:
                             scope='usa', color_continuous_scale='Reds', title='Hot Zones by State')
     st.plotly_chart(fig_map, use_container_width=True)
 
-# Recruitment patterns (existing top states per team)
+# Recruitment patterns
 st.subheader("Recruitment Patterns (Top States per Team)")
 if not filtered.empty:
     top_states = filtered.groupby(['teamName', 'state']).size().reset_index(name='count').sort_values('count', ascending=False).head(20)
     fig_bar = px.bar(top_states, x='state', y='count', color='teamName', title='Top Recruiting States')
     st.plotly_chart(fig_bar, use_container_width=True)
 
-# Players by Region (existing)
+# Players by Region
 st.subheader("Players by Region")
 if not filtered.empty:
     region_counts = filtered['region'].value_counts().reset_index()
@@ -129,7 +142,7 @@ if not filtered.empty:
         fig_bar_reg = px.bar(region_counts.sort_values('count', ascending=False), x='region', y='count', color='region', title='Player Count by Region')
         st.plotly_chart(fig_bar_reg, use_container_width=True)
 
-# NEW: Players by Team (mirrors Players by Region section)
+# Players by Team
 st.subheader("Players by Team (within current filters)")
 if not filtered.empty:
     team_counts = filtered['teamName'].value_counts().reset_index()
