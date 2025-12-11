@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import requests
 import json
-import numpy as np  # Needed for T90_per_PA
+import numpy as np
 
 st.title("College Baseball Player Dashboard")
 
@@ -60,22 +60,136 @@ def load_data():
 
 data = load_data()
 
-# --- Filters (same as before) ---
-# (Copy all sidebar filters, base filtering, custom stat filters, draft, etc. from the last working version)
-# ... paste them here ...
+# Sidebar Filters
+st.sidebar.header("Filters")
 
-# --- Main content (table, maps, charts) ---
-# (Copy from last working version)
-# ... paste here ...
+role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
+league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
+team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
+year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (int(data['year'].min()), int(data['year'].max())), key="year")
+state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'].unique()), key="state")
+region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()), key="region")
+min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0, key="min_games")
+drafted_filter = st.sidebar.radio("Drafted Status", ["All", "Drafted Only", "Undrafted Only"], key="drafted")
 
-# --- AI Assistant ---
+# Draft round slider
+draft_round_range = st.sidebar.slider(
+    "Draft Round Range (0 = undrafted, 1+ = drafted round)",
+    min_value=0,
+    max_value=70,
+    value=(0, 70),
+    key="draft_round"
+)
+
+# Custom Stat Filters (chained)
+available_stats = ['ERA', 'OPS', 'W', 'L', 'SO', 'BB', 'HR', 'RBI', 'SB', 'CS', 'Bavg', 'Slg', 'obp', 'WHIP', 'IP', 'H', 'R', 'ER', 'G', 'GS', 'T90s', 'T90_per_PA']
+
+stat1 = st.sidebar.selectbox("Custom Stat Filter 1", options=['None'] + available_stats, index=0, key="stat1")
+filter1_applied = stat1 != 'None'
+if filter1_applied:
+    direction1 = st.sidebar.radio(f"{stat1} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir1")
+    step1 = 0.1 if stat1 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90_per_PA'] else 1.0
+    value1 = st.sidebar.number_input(f"{stat1} value", value=0.0, step=step1, key="val1")
+
+stat2 = 'None'
+if filter1_applied:
+    remaining = [s for s in available_stats if s != stat1]
+    stat2 = st.sidebar.selectbox("Custom Stat Filter 2", options=['None'] + remaining, index=0, key="stat2")
+if stat2 != 'None':
+    direction2 = st.sidebar.radio(f"{stat2} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir2")
+    step2 = 0.1 if stat2 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90_per_PA'] else 1.0
+    value2 = st.sidebar.number_input(f"{stat2} value", value=0.0, step=step2, key="val2")
+
+# Base filtering
+filtered = data[
+    data['role'].isin(role_filter) &
+    data['year'].between(*year_filter) &
+    (data['G'] >= min_games)
+]
+for f, col in zip([league_filter, team_filter, state_filter, region_filter],
+                  ['LeagueAbbr', 'teamName', 'state', 'region']):
+    if f:
+        filtered = filtered[filtered[col].isin(f)]
+
+# Draft status
+if drafted_filter == "Drafted Only":
+    filtered = filtered[filtered['is_drafted']]
+elif drafted_filter == "Undrafted Only":
+    filtered = filtered[~filtered['is_drafted']]
+
+# Draft round
+filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
+
+# Custom stat filters
+if stat1 != 'None' and stat1 in filtered.columns:
+    if direction1 == "Greater than or equal to":
+        filtered = filtered[filtered[stat1] >= value1]
+    else:
+        filtered = filtered[filtered[stat1] <= value1]
+
+if stat2 != 'None' and stat2 in filtered.columns:
+    if direction2 == "Greater than or equal to":
+        filtered = filtered[filtered[stat2] >= value2]
+    else:
+        filtered = filtered[filtered[stat2] <= value2]
+
+# Column selector
+default_cols = ['firstname','lastname','teamName','year','role','G','state','region','draft_Round','is_drafted','T90s','T90_per_PA']
+cols = st.multiselect("Columns to show", options=filtered.columns.tolist(), default=default_cols, key="cols")
+
+st.subheader(f"Filtered Players – {len(filtered):,} rows")
+st.dataframe(filtered[cols] if cols else filtered.head(100))
+
+# State map
+st.subheader("Hometown Hot Zones (US Map)")
+if not filtered.empty:
+    state_counts = filtered.groupby('state').size().reset_index(name='player_count')
+    fig_map = px.choropleth(state_counts, locations='state', locationmode='USA-states', color='player_count',
+                            scope='usa', color_continuous_scale='Reds', title='Hot Zones by State')
+    st.plotly_chart(fig_map, use_container_width=True)
+
+# Recruitment patterns
+st.subheader("Recruitment Patterns (Top States per Team)")
+if not filtered.empty:
+    top_states = filtered.groupby(['teamName', 'state']).size().reset_index(name='count').sort_values('count', ascending=False).head(20)
+    fig_bar = px.bar(top_states, x='state', y='count', color='teamName', title='Top Recruiting States')
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+# Players by Region
+st.subheader("Players by Region")
+if not filtered.empty:
+    region_counts = filtered['region'].value_counts().reset_index()
+    region_counts.columns = ['region', 'count']
+    col1, col2 = st.columns(2)
+    with col1:
+        fig_pie = px.pie(region_counts, values='count', names='region', title='Players by Region (%)')
+        st.plotly_chart(fig_pie, use_container_width=True)
+    with col2:
+        fig_bar_reg = px.bar(region_counts.sort_values('count', ascending=False), x='region', y='count', color='region', title='Player Count by Region')
+        st.plotly_chart(fig_bar_reg, use_container_width=True)
+
+# Players by Team
+st.subheader("Players by Team (within current filters)")
+if not filtered.empty:
+    team_counts = filtered['teamName'].value_counts().reset_index()
+    team_counts.columns = ['teamName', 'count']
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        fig_pie_team = px.pie(team_counts.head(20), values='count', names='teamName', title='Top 20 Teams by Player Count (%)')
+        st.plotly_chart(fig_pie_team, use_container_width=True)
+    with col2:
+        fig_bar_team = px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count')
+        st.plotly_chart(fig_bar_team, use_container_width=True)
+
+# AI Assistant
 st.sidebar.header("AI Assistant (powered by Grok)")
 
 if "grok_api_key" not in st.session_state:
     api_key = st.sidebar.text_input("Enter your Grok API key (from console.x.ai)", type="password")
     if api_key:
         st.session_state.grok_api_key = api_key
-        st.sidebar.success("API key saved!")
+        st.sidebar.success("API key saved for this session!")
 else:
     st.sidebar.success("API key loaded")
     api_key = st.session_state.grok_api_key
@@ -84,12 +198,12 @@ if "ai_chat" not in st.session_state:
     st.session_state.ai_chat = []
 
 if api_key:
-    user_question = st.sidebar.text_input("Ask about the current filtered data")
+    user_question = st.sidebar.text_input("Ask about the current filtered data", key="ai_question")
     if st.sidebar.button("Send"):
         if user_question:
             with st.sidebar:
                 with st.spinner("Asking Grok..."):
-                    data_summary = f"Filtered data has {len(filtered)} players. Columns: {', '.join(filtered.columns)}. Sample:\n{filtered.head(3).to_string()}\nQuestion: {user_question}"
+                    data_summary = f"Filtered data has {len(filtered)} players. Columns: {', '.join(filtered.columns)}. Sample rows:\n{filtered.head(3).to_string()}\nQuestion: {user_question}"
                     url = "https://api.x.ai/v1/chat/completions"
                     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
                     payload = {
@@ -97,15 +211,19 @@ if api_key:
                         "messages": [{"role": "user", "content": data_summary}],
                         "temperature": 0.5
                     }
-                    response = requests.post(url, headers=headers, json=payload)
-                    if response.status_code == 200:
-                        answer = response.json()['choices'][0]['message']['content']
-                    else:
-                        answer = f"API error: {response.text}"
+                    try:
+                        response = requests.post(url, headers=headers, json=payload, timeout=30)
+                        if response.status_code == 200:
+                            answer = response.json()['choices'][0]['message']['content']
+                        else:
+                            answer = f"API error: {response.status_code} - {response.text}"
+                    except Exception as e:
+                        answer = f"Request error: {str(e)}"
                     st.session_state.ai_chat.append({"q": user_question, "a": answer})
+                    st.rerun()
 
 if st.session_state.ai_chat:
     st.sidebar.subheader("Chat History")
-    for chat in st.session_state.ai_chat[-5:]:
-        with st.sidebar.expander(chat["q"][:50] + "..."):
+    for chat in st.session_state.ai_chat[-10:]:
+        with st.sidebar.expander(chat["q"][:60] + ("..." if len(chat["q"]) > 60 else "")):
             st.write(chat["a"])
