@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import numpy as np
 
-st.title("College Baseball Player Dashboard")
+st.title("College Baseball Roster Analysis - 2002-2025")
 
 # Reset button in sidebar
 st.sidebar.header("Filters")
