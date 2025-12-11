@@ -4,6 +4,11 @@ import plotly.express as px
 
 st.title("College Baseball Player Dashboard")
 
+# Reset button at the top
+if st.button("Reset All Filters"):
+    st.session_state.clear()
+    st.rerun()
+
 @st.cache_data
 def load_data():
     pitchers = pd.read_csv('pitchers.csv')
@@ -45,39 +50,40 @@ data = load_data()
 
 # Sidebar Filters
 st.sidebar.header("Filters")
-role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'])
-league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()))
-team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()))
-year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (int(data['year'].min()), int(data['year'].max())))
-state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'].unique()))
-region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()))
-min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0)
-drafted_filter = st.sidebar.radio("Drafted Status", ["All", "Drafted Only", "Undrafted Only"])
+role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
+league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
+team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
+year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (int(data['year'].min()), int(data['year'].max())), key="year")
+state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'].unique()), key="state")
+region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()), key="region")
+min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0, key="min_games")
+drafted_filter = st.sidebar.radio("Drafted Status", ["All", "Drafted Only", "Undrafted Only"], key="drafted")
 
 # Draft round slider
 draft_round_range = st.sidebar.slider(
     "Draft Round Range (0 = undrafted, 1+ = drafted round)",
     min_value=0,
     max_value=70,
-    value=(0, 70)
+    value=(0, 70),
+    key="draft_round"
 )
 
 # Available stats for custom filters
 available_stats = ['ERA', 'OPS', 'W', 'L', 'SO', 'BB', 'HR', 'RBI', 'SB', 'CS', 'Bavg', 'Slg', 'obp', 'WHIP', 'IP', 'H', 'R', 'ER', 'G', 'GS']
 
 # Custom Stat Filter 1
-stat1 = st.sidebar.selectbox("Custom Stat Filter 1", options=['None'] + available_stats, index=0)
-filter1_applied = False
-if stat1 != 'None':
+stat1 = st.sidebar.selectbox("Custom Stat Filter 1", options=['None'] + available_stats, index=0, key="stat1")
+filter1_applied = stat1 != 'None'
+if filter1_applied:
     direction1 = st.sidebar.radio(f"{stat1} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir1")
     step1 = 0.1 if stat1 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP'] else 1.0
     value1 = st.sidebar.number_input(f"{stat1} value", value=0.0, step=step1, key="val1")
-    filter1_applied = True
 
-# Custom Stat Filter 2 (only shows if Filter 1 is used)
+# Custom Stat Filter 2
 stat2 = 'None'
 if filter1_applied:
-    stat2 = st.sidebar.selectbox("Custom Stat Filter 2", options=['None'] + [s for s in available_stats if s != stat1], index=0)
+    remaining_stats = [s for s in available_stats if s != stat1]
+    stat2 = st.sidebar.selectbox("Custom Stat Filter 2", options=['None'] + remaining_stats, index=0, key="stat2")
 if stat2 != 'None':
     direction2 = st.sidebar.radio(f"{stat2} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir2")
     step2 = 0.1 if stat2 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP'] else 1.0
@@ -117,19 +123,19 @@ if stat2 != 'None' and stat2 in filtered.columns:
         filtered = filtered[filtered[stat2] <= value2]
 
 # Sort
-sort_by = st.sidebar.selectbox("Sort by", ['None','ERA','OPS','W','SO','Bavg','G'])
+sort_by = st.sidebar.selectbox("Sort by", ['None','ERA','OPS','W','SO','Bavg','G'], key="sort")
 if sort_by != 'None':
     asc = sort_by == 'ERA'
     filtered = filtered.sort_values(sort_by, ascending=asc, na_position='last')
 
 # Column selector
 default_cols = ['firstname','lastname','teamName','year','role','G','state','region','draft_Round','is_drafted']
-cols = st.multiselect("Columns to show", options=filtered.columns.tolist(), default=default_cols)
+cols = st.multiselect("Columns to show", options=filtered.columns.tolist(), default=default_cols, key="cols")
 
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
 st.dataframe(filtered[cols] if cols else filtered.head(100))
 
-# State map (fixed syntax)
+# State map
 st.subheader("Hometown Hot Zones (US Map)")
 if not filtered.empty:
     state_counts = filtered.groupby('state').size().reset_index(name='player_count')
