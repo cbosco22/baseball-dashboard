@@ -4,11 +4,6 @@ import plotly.express as px
 
 st.title("College Baseball Player Dashboard")
 
-# Reset button at the top
-if st.button("Reset All Filters"):
-    st.session_state.clear()
-    st.rerun()
-
 @st.cache_data
 def load_data():
     pitchers = pd.read_csv('pitchers.csv')
@@ -50,6 +45,12 @@ data = load_data()
 
 # Sidebar Filters
 st.sidebar.header("Filters")
+
+# Reset button in sidebar
+if st.sidebar.button("Reset All Filters"):
+    st.session_state.clear()
+    st.rerun()
+
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
 team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
@@ -121,12 +122,6 @@ if stat2 != 'None' and stat2 in filtered.columns:
         filtered = filtered[filtered[stat2] >= value2]
     else:
         filtered = filtered[filtered[stat2] <= value2]
-
-# Sort
-sort_by = st.sidebar.selectbox("Sort by", ['None','ERA','OPS','W','SO','Bavg','G'], key="sort")
-if sort_by != 'None':
-    asc = sort_by == 'ERA'
-    filtered = filtered.sort_values(sort_by, ascending=asc, na_position='last')
 
 # Column selector
 default_cols = ['firstname','lastname','teamName','year','role','G','state','region','draft_Round','is_drafted']
