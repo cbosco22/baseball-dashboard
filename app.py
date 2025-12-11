@@ -18,7 +18,7 @@ def load_data():
     us_states = ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY']
     all_players = all_players[all_players['state'].isin(us_states)]
     
-    # Clean draft - fill NaN rounds with 0 for slider logic
+    # Clean draft - fill NaN rounds with 0
     all_players['draft_year'] = pd.to_numeric(all_players['draft_year'], errors='coerce')
     all_players['draft_Round'] = pd.to_numeric(all_players['draft_Round'], errors='coerce').fillna(0)
     all_players['is_drafted'] = all_players['draft_year'].notna()
@@ -83,13 +83,13 @@ if drafted_filter == "Drafted Only":
 elif drafted_filter == "Undrafted Only":
     filtered_data = filtered_data[~filtered_data['is_drafted']]
 
-# Draft round slider - only show if drafted players exist
+# Draft round slider - ONLY if drafted players exist after all other filters
 if filtered_data['is_drafted'].any():
     max_round = int(filtered_data['draft_Round'].max())
     draft_round_range = st.sidebar.slider("Draft Round Range (0 = not drafted)", min_value=0, max_value=max_round, value=(0, max_round))
     filtered_data = filtered_data[filtered_data['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
 else:
-    st.sidebar.info("No drafted players in current view")
+    st.sidebar.info("No drafted players in current view - round filter hidden")
 
 # Stat filters
 if 'ERA' in filtered_data.columns:
