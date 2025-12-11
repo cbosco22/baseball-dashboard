@@ -43,36 +43,33 @@ df = load_data()
 
 # (Copy the filter code from the previous message — it's unchanged)
 
-# ====================== PINPOINT MAP (fixed & beautiful) ======================
+# ====================== PINPOINT MAP (fixed & beautiful) ====================
+# (Assume this is after all filters and sort code, where filtered_data is defined)
+
 st.subheader(f"Player High School Locations • {len(filtered_data):,} players")
 
 if not filtered_data.empty:
-    # For now, use state-level centers (we'll add real city geocoding next)
-    # This gives nice clustered pins by state with counts
-    state_counts = filtered_data['state'].value_counts().reset_index()
-    state_counts.columns = ['state', 'count']
-
-    fig = px.scatter_geo(state_counts,
-                         locations="state",
-                         locationmode='USA-states',
-                         size="count",
-                         size_max=50,
-                         hover_data={"count": True},
-                         color="count",
-                         color_continuous_scale="Blues",
-                         projection="albers usa",
-                         title=None)
-
-    fig.update_layout(
-        geo=dict(bgcolor='#0E1117', lakecolor='#0E1117', subunitcolor='grey'),
-        paper_bgcolor='#0E1117',
-        plot_bgcolor='#0E1117',
-        font_color="white"
+    # Temporary fallback to state heatmap (since no lat/lon yet; fixes TypeError)
+    state_counts = filtered_data.groupby('state').size().reset_index(name='player_count')
+    fig = px.choropleth(
+        state_counts,
+        locations='state',
+        locationmode='USA-states',
+        color='player_count',
+        scope='usa',
+        color_continuous_scale='Reds',
+        labels={'player_count': 'Player Count'},
+        title='Hot Zones by State'
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig)
 else:
-    st.write("No players match filters.")
+    st.write("No data matches filters.")
 
-# Keep the rest (table, charts) the same
-
-st.success("Map fixed — dark theme, clustered pins, no token needed! Real city pins coming in the next version.")
+# ====================== Recruitment Patterns Chart (unchanged) ===============
+st.subheader("Recruitment Patterns (Top States per Team)")
+if not filtered_data.empty:
+    top_states = filtered_data.groupby(['teamName', 'state']).size().reset_index(name='count').sort_values('count', ascending=False).head(20)
+    fig_bar = px.bar(top_states, x='state', y='count', color='teamName', title='Top Recruiting States')
+    st.plotly_chart(fig_bar)
+else:
+    st.write("No data matches filters.")
