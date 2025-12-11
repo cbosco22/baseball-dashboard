@@ -17,7 +17,7 @@ def load_data():
     us_states = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY']
     df = df[df['state'].isin(us_states)]
 
-    # Draft cleanup
+    # Draft cleanup - undrafted = 0
     df['draft_year'] = pd.to_numeric(df['draft_year'], errors='coerce')
     df['draft_Round'] = pd.to_numeric(df['draft_Round'], errors='coerce').fillna(0)
     df['is_drafted'] = df['draft_year'].notna()
@@ -73,18 +73,14 @@ if drafted_filter == "Drafted Only":
 elif drafted_filter == "Undrafted Only":
     filtered = filtered[~filtered['is_drafted']]
 
-# Draft round slider — ONLY if drafted players remain
-if filtered['is_drafted'].any():
-    max_round = int(filtered['draft_Round'].max())
-    draft_round_range = st.sidebar.slider(
-        "Draft Round Range (0 = not drafted)",
-        min_value=0,
-        max_value=max_round,
-        value=(0, max_round)
-    )
-    filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
-else:
-    st.sidebar.info("No drafted players in current view — round filter hidden")
+# Draft round slider - ALWAYS visible, fixed range 0-70
+draft_round_range = st.sidebar.slider(
+    "Draft Round Range (0 = undrafted, 1+ = drafted round)",
+    min_value=0,
+    max_value=70,
+    value=(0, 70)
+)
+filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
 
 # Stat filters
 if 'ERA' in filtered.columns:
@@ -92,10 +88,10 @@ if 'ERA' in filtered.columns:
 if 'OPS' in filtered.columns:
     filtered = filtered[(filtered['role'] != 'Hitter') | (filtered['OPS'] >= ops_min)]
 
-# Career view (temporarily disabled to avoid any issues — we can add back later)
+# Career view (temporarily disabled - let me know if you want it back)
 career_view = st.checkbox("Show Career Aggregated View")
 if career_view:
-    st.info("Career view temporarily disabled — let me know if you want it back!")
+    st.info("Career view temporarily disabled for stability - I can add it back!")
 
 # Sort
 sort_by = st.sidebar.selectbox("Sort by", ['None','ERA','OPS','W','SO','Bavg','G'])
