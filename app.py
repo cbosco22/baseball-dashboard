@@ -1,13 +1,11 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import requests
-import json
 import numpy as np
 
 st.title("College Baseball Player Dashboard")
 
-# Reset button at the top
+# Reset button
 if st.button("Reset All Filters"):
     st.session_state.clear()
     st.rerun()
@@ -72,6 +70,17 @@ region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['regi
 min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0, key="min_games")
 drafted_filter = st.sidebar.radio("Drafted Status", ["All", "Drafted Only", "Undrafted Only"], key="drafted")
 
+# NEW: Position, Bats, Throws, Age, Height, Weight
+position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'].dropna().unique()), key="posit")
+bats_filter = st.sidebar.multiselect("Bats", options=sorted(data['Bats'].dropna().unique()), key="bats")
+throws_filter = st.sidebar.multiselect("Throws", options=sorted(data['Throws'].dropna().unique()), key="throws")
+age_range = st.sidebar.slider("Age Range", min_value=int(data['Age'].min()), max_value=int(data['Age'].max()), value=(int(data['Age'].min()), int(data['Age'].max())), key="age")
+ht_range = st.sidebar.slider("Height (inches)", min_value=int(data['ht'].min()), max_value=int(data['ht'].max()), value=(int(data['ht'].min()), int(data['ht'].max())), key="ht")
+wt_range = st.sidebar.slider("Weight (lbs)", min_value=int(data['WT'].min()), max_value=int(data['WT'].max()), value=(int(data['WT'].min()), int(data['WT'].max())), key="wt")
+
+# NEW: Player name search
+name_search = st.sidebar.text_input("Search Player Name", key="name_search")
+
 # Draft round slider
 draft_round_range = st.sidebar.slider(
     "Draft Round Range (0 = undrafted, 1+ = drafted round)",
@@ -104,20 +113,35 @@ if stat2 != 'None':
 filtered = data[
     data['role'].isin(role_filter) &
     data['year'].between(*year_filter) &
-    (data['G'] >= min_games)
+    (data['G'] >= min_games) &
+    data['Age'].between(*age_range) &
+    data['ht'].between(*ht_range) &
+    data['WT'].between(*wt_range)
 ]
-for f, col in zip([league_filter, team_filter, state_filter, region_filter],
-                  ['LeagueAbbr', 'teamName', 'state', 'region']):
-    if f:
-        filtered = filtered[filtered[col].isin(f)]
+if league_filter:
+    filtered = filtered[filtered['LeagueAbbr'].isin(league_filter)]
+if team_filter:
+    filtered = filtered[filtered['teamName'].isin(team_filter)]
+if state_filter:
+    filtered = filtered[filtered['state'].isin(state_filter)]
+if region_filter:
+    filtered = filtered[filtered['region'].isin(region_filter)]
+if position_filter:
+    filtered = filtered[filtered['posit'].isin(position_filter)]
+if bats_filter:
+    filtered = filtered[filtered['Bats'].isin(bats_filter)]
+if throws_filter:
+    filtered = filtered[filtered['Throws'].isin(throws_filter)]
+if name_search:
+    filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) | filtered['lastname'].str.contains(name_search, case=False, na=False)]
 
-# Draft status filter
+# Draft status
 if drafted_filter == "Drafted Only":
     filtered = filtered[filtered['is_drafted']]
 elif drafted_filter == "Undrafted Only":
     filtered = filtered[~filtered['is_drafted']]
 
-# Draft round filter
+# Draft round
 filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
 
 # Custom stat filters
@@ -134,11 +158,42 @@ if stat2 != 'None' and stat2 in filtered.columns:
         filtered = filtered[filtered[stat2] <= value2]
 
 # Column selector
-default_cols = ['firstname','lastname','teamName','year','role','G','state','region','draft_Round','is_drafted','T90s','T90_per_PA']
+default_cols = ['firstname','lastname','teamName','year','role','G','state','region','draft_Round','is_drafted','T90s','T90_per_PA','posit','Bats','Throws','Age','ht','WT']
 cols = st.multiselect("Columns to show", options=filtered.columns.tolist(), default=default_cols, key="cols")
+
+# Export button
+csv = filtered.to_csv(index=False).encode('utf-8')
+st.download_button(
+    label="Export Filtered Data as CSV",
+    data=csv,
+    file_name='college_baseball_filtered.csv',
+    mime='text/csv'
+)
 
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
 st.dataframe(filtered[cols] if cols else filtered.head(100))
+
+# Top Performers
+st.subheader("Top Performers (within current filters)")
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    if 'ERA' in filtered.columns:
+        top_era = filtered[filtered['role'] == 'Pitcher'].nsmallest(50, 'ERA')[['firstname', 'lastname', 'teamName', 'year', 'ERA', 'G']]
+        st.write("**Top 50 Lowest ERA Pitchers**")
+        st.dataframe(top_era)
+
+with col2:
+    if 'OPS' in filtered.columns:
+        top_ops = filtered[filtered['role'] == 'Hitter'].nlargest(50, 'OPS')[['firstname', 'lastname', 'teamName', 'year', 'OPS', 'G']]
+        st.write("**Top 50 Highest OPS Hitters**")
+        st.dataframe(top_ops)
+
+with col3:
+    if 'T90_per_PA' in filtered.columns:
+        top_t90 = filtered.nlargest(50, 'T90_per_PA')[['firstname', 'lastname', 'teamName', 'year', 'T90_per_PA', 'T90s', 'PA']]
+        st.write("**Top 50 T90 per PA**")
+        st.dataframe(top_t90)
 
 # State map
 st.subheader("Hometown Hot Zones (US Map)")
@@ -181,3 +236,5 @@ if not filtered.empty:
     with col2:
         fig_bar_team = px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count')
         st.plotly_chart(fig_bar_team, use_container_width=True)
+else:
+    st.write("No data matches filters.")
