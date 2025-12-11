@@ -265,8 +265,10 @@ with hitter_col1:
         ops_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
         if not ops_qual.empty:
             top_ops = ops_qual.nlargest(50, 'OPS')[['firstname', 'lastname', 'teamName', 'year', 'OPS', 'PA', 'G']]
+            top_ops = top_ops.reset_index(drop=True)
+            top_ops.index = top_ops.index + 1  # Rank 1,2,3...
             st.write("**Top 50 Highest OPS Hitters (min 100 PA)**")
-            st.dataframe(top_ops, use_container_width=True, hide_index=True)
+            st.dataframe(top_ops, use_container_width=True, hide_index=False)
         else:
             st.write("**No hitters qualify (min 100 PA)**")
 
@@ -275,8 +277,10 @@ with hitter_col2:
         t90_qual = filtered[filtered['PA'] >= 100]
         if not t90_qual.empty:
             top_t90 = t90_qual.nlargest(50, 'T90/PA')[['firstname', 'lastname', 'teamName', 'year', 'T90/PA', 'T90s', 'PA']]
+            top_t90 = top_t90.reset_index(drop=True)
+            top_t90.index = top_t90.index + 1
             st.write("**Top 50 T90/PA (min 100 PA)**")
-            st.dataframe(top_t90, use_container_width=True, hide_index=True)
+            st.dataframe(top_t90, use_container_width=True, hide_index=False)
         else:
             st.write("**No players qualify (min 100 PA)**")
 
@@ -288,8 +292,10 @@ with pitcher_col1:
         era_qual = filtered[(filtered['role'] == 'Pitcher') & (filtered['IP'] >= 50)]
         if not era_qual.empty:
             top_era = era_qual.nsmallest(50, 'ERA')[['firstname', 'lastname', 'teamName', 'year', 'ERA', 'IP', 'G']]
+            top_era = top_era.reset_index(drop=True)
+            top_era.index = top_era.index + 1
             st.write("**Top 50 Lowest ERA Pitchers (min 50 IP)**")
-            st.dataframe(top_era, use_container_width=True, hide_index=True)
+            st.dataframe(top_era, use_container_width=True, hide_index=False)
         else:
             st.write("**No pitchers qualify (min 50 IP)**")
 
@@ -298,7 +304,9 @@ with pitcher_col2:
         so_qual = filtered[(filtered['role'] == 'Pitcher') & (filtered['IP'] >= 50)]
         if not so_qual.empty:
             top_so = so_qual.nlargest(50, 'SO')[['firstname', 'lastname', 'teamName', 'year', 'SO', 'IP', 'G']]
+            top_so = top_so.reset_index(drop=True)
+            top_so.index = top_so.index + 1
             st.write("**Top 50 Highest Strikeout Pitchers (min 50 IP)**")
-            st.dataframe(top_so, use_container_width=True, hide_index=True)
+            st.dataframe(top_so, use_container_width=True, hide_index=False)
         else:
             st.write("**No pitchers qualify (min 50 IP)**")
