@@ -52,8 +52,8 @@ def load_data():
     df['TotalBases'] = df['Singles'] + 2*df['Dbl'].fillna(0) + 3*df['Tpl'].fillna(0) + 4*df['HR'].fillna(0)
     df['T90s'] = df['TotalBases'] + df['SB'].fillna(0) + df['BB'].fillna(0) + df['HBP'].fillna(0)
     df['PA'] = df['AB'].fillna(0) + df['BB'].fillna(0) + df['HBP'].fillna(0) + df['SF'].fillna(0) + df['SH'].fillna(0)
-    df['T90_per_PA'] = df['T90s'] / df['PA'].replace(0, np.nan)
-    df['T90_per_PA'] = df['T90_per_PA'].fillna(0)
+    df['T90/PA'] = df['T90s'] / df['PA'].replace(0, np.nan)
+    df['T90/PA'] = df['T90/PA'].fillna(0)
 
     # Clean height and weight
     df['ht'] = pd.to_numeric(df['ht'], errors='coerce')
@@ -115,13 +115,13 @@ draft_round_range = st.sidebar.slider(
 )
 
 # Custom Stat Filters
-available_stats = ['ERA', 'OPS', 'W', 'L', 'SO', 'BB', 'HR', 'RBI', 'SB', 'CS', 'Bavg', 'Slg', 'obp', 'WHIP', 'IP', 'H', 'R', 'ER', 'G', 'GS', 'T90s', 'T90_per_PA']
+available_stats = ['ERA', 'OPS', 'W', 'L', 'SO', 'BB', 'HR', 'RBI', 'SB', 'CS', 'Bavg', 'Slg', 'obp', 'WHIP', 'IP', 'H', 'R', 'ER', 'G', 'GS', 'T90s', 'T90/PA']
 
 stat1 = st.sidebar.selectbox("Custom Stat Filter 1", options=['None'] + available_stats, index=0, key="stat1")
 filter1_applied = stat1 != 'None'
 if filter1_applied:
     direction1 = st.sidebar.radio(f"{stat1} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir1")
-    step1 = 0.1 if stat1 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90_per_PA'] else 1.0
+    step1 = 0.1 if stat1 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90/PA'] else 1.0
     value1 = st.sidebar.number_input(f"{stat1} value", value=0.0, step=step1, key="val1")
 
 stat2 = 'None'
@@ -130,7 +130,7 @@ if filter1_applied:
     stat2 = st.sidebar.selectbox("Custom Stat Filter 2", options=['None'] + remaining, index=0, key="stat2")
 if stat2 != 'None':
     direction2 = st.sidebar.radio(f"{stat2} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir2")
-    step2 = 0.1 if stat2 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90_per_PA'] else 1.0
+    step2 = 0.1 if stat2 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90/PA'] else 1.0
     value2 = st.sidebar.number_input(f"{stat2} value", value=0.0, step=step2, key="val2")
 
 # Base filtering
@@ -186,7 +186,7 @@ if stat2 != 'None' and stat2 in filtered.columns:
         filtered = filtered[filtered[stat2] <= value2]
 
 # Column selector
-default_cols = ['firstname','lastname','teamName','year','role','G','state','region','draft_Round','is_drafted','T90s','T90_per_PA','posit','Bats','Throws','ht','WT']
+default_cols = ['firstname','lastname','teamName','year','role','G','state','region','draft_Round','is_drafted','T90s','T90/PA','posit','Bats','Throws','ht','WT']
 cols = st.multiselect("Columns to show", options=filtered.columns.tolist(), default=default_cols, key="cols")
 
 # Export button
@@ -268,10 +268,10 @@ with col2:
             st.write("**No hitters qualify (min 100 PA)**")
 
 with col3:
-    if 'T90_per_PA' in filtered.columns and 'PA' in filtered.columns:
+    if 'T90/PA' in filtered.columns and 'PA' in filtered.columns:
         t90_qual = filtered[filtered['PA'] >= 100]
         if not t90_qual.empty:
-            top_t90 = t90_qual.nlargest(50, 'T90_per_PA')[['firstname', 'lastname', 'teamName', 'year', 'T90_per_PA', 'T90s', 'PA']]
+            top_t90 = t90_qual.nlargest(50, 'T90/PA')[['firstname', 'lastname', 'teamName', 'year', 'T90/PA', 'T90s', 'PA']]
             st.write("**Top 50 T90/PA (min 100 PA)**")
             st.dataframe(top_t90)
         else:
