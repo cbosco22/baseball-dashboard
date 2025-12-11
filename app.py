@@ -68,7 +68,7 @@ def load_data():
 
     return df
 
-data = load adă_data()
+data = load_data()  # Fixed line
 
 # Sidebar Filters
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
@@ -79,7 +79,7 @@ state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'
 region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()), key="region")
 min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0, key="min_games")
 
-# Position filter (regular multiselect - quick search removed)
+# Position filter (regular multiselect)
 position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'].dropna().unique()), key="posit")
 
 # Bats and Throws
@@ -98,7 +98,7 @@ wt_range = st.sidebar.slider("Weight (lbs)", min_value=wt_min, max_value=wt_max,
 # Player name search
 name_search = st.sidebar.text_input("Search Player Name", key="name_search")
 
-# Draft round slider only (draft status radio removed)
+# Draft round slider only
 draft_round_range = st.sidebar.slider(
     "Draft Round Range (0 = undrafted, 1+ = drafted round)",
     min_value=0,
@@ -156,7 +156,7 @@ if filtered['ht'].notna().any():
 if filtered['WT'].notna().any():
     filtered = filtered[filtered['WT'].between(wt_range[0], wt_range[1])]
 
-# Draft round filter (only slider now)
+# Draft round filter
 filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
 
 # Custom stat filters
