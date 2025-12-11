@@ -34,21 +34,11 @@ league_filter = st.sidebar.multiselect("League (leave blank for ALL)", options=s
 team_filter = st.sidebar.multiselect("Team/School (leave blank for ALL)", options=sorted(data['teamName'].unique()))
 year_filter = st.sidebar.slider("Year Range", min_value=int(data['year'].min()), max_value=int(data['year'].max()), value=(int(data['year'].min()), int(data['year'].max())))
 
-# New: Games played filter
+# Games played filter
 min_games = st.sidebar.slider("Minimum Games Played (G)", min_value=0, max_value=int(data['G'].max()), value=0)
 
-# New: Draft filters
-drafted_filter = st.sidebar.radio("Drafted Status", options=["All", "Drafted Only", "Undrafted Only"])
-if drafted_filter != "All":
-    if drafted_filter == "Drafted Only":
-        data = data[data['is_drafted']]
-    else:
-        data = data[~data['is_drafted']]
-if data['is_drafted'].any():
-    max_round = int(data['draft_Round'].max())
-    draft_round_range = st.sidebar.slider("Draft Round Range", min_value=1, max_value=max_round, value=(1, max_round))
-else:
-    draft_round_range = (1, 1)
+# Draft filters - FIXED
+drafted_filter = st.sidebar.radio("Drafted Status", options=["All", "Drafted Only", "Undrafted Only"], index=0)
 
 # Stat filters
 era_min = st.sidebar.number_input("Min ERA (Pitchers)", value=0.0, step=0.1)
@@ -64,8 +54,20 @@ if league_filter:
     filtered_data = filtered_data[filtered_data['LeagueAbbr'].isin(league_filter)]
 if team_filter:
     filtered_data = filtered_data[filtered_data['teamName'].isin(team_filter)]
-if data['is_drafted'].any():
+
+# Apply drafted status filter
+if drafted_filter == "Drafted Only":
+    filtered_data = filtered_data[filtered_data['is_drafted']]
+elif drafted_filter == "Undrafted Only":
+    filtered_data = filtered_data[~filtered_data['is_drafted']]
+
+# Draft round filter (only show if there are drafted players after filtering)
+if filtered_data['is_drafted'].any():
+    max_round = int(filtered_data['draft_Round'].max())
+    draft_round_range = st.sidebar.slider("Draft Round Range", min_value=1, max_value=max_round, value=(1, max_round))
     filtered_data = filtered_data[filtered_data['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
+else:
+    st.sidebar.info("No drafted players in current view - round filter hidden")
 
 # Stat filters
 if 'ERA' in filtered_data.columns:
@@ -73,7 +75,7 @@ if 'ERA' in filtered_data.columns:
 if 'OPS' in filtered_data.columns:
     filtered_data = filtered_data[(filtered_data['role'] != 'Hitter') | (filtered_data['OPS'] >= ops_min)]
 
-# New: Career view toggle
+# Career view toggle
 career_view = st.checkbox("Show Career Aggregated View (one row per player at school)")
 
 if career_view:
@@ -92,17 +94,15 @@ if career_view:
             'draft_Round': 'first',
             'draft_overall': 'first',
         }
-        # Pitcher stats (avg where makes sense, sum for counts)
+        # Pitcher/hitter stats...
         pitcher_stats = ['W', 'L', 'SO', 'BB', 'IP', 'H', 'R', 'ER', 'HR']
         for stat in pitcher_stats:
             if stat in df.columns:
                 agg_dict[stat] = 'sum' if stat in ['W', 'L', 'SO'] else 'mean'
-        # Hitter stats
         hitter_stats = ['AB', 'R', 'H', 'Dbl', 'Tpl', 'HR', 'RBI', 'SB', 'CS', 'BB', 'SO']
         for stat in hitter_stats:
             if stat in df.columns:
                 agg_dict[stat] = 'sum'
-        # Rate stats avg
         rate_stats = ['ERA', 'Bavg', 'Slg', 'obp', 'OPS', 'WHIP']
         for stat in rate_stats:
             if stat in df.columns:
@@ -120,10 +120,10 @@ if sort_stat != 'None':
     ascending = (sort_stat in ['ERA'])
     filtered_data = filtered_data.sort_values(sort_stat, ascending=ascending, na_position='last')
 
-# New: Customizable columns
+# Customizable columns
 all_columns = filtered_data.columns.tolist()
-default_columns = ['firstname', 'lastname', 'teamName', 'year', 'role', 'G', 'ERA' if 'Pitcher' in role_filter else 'OPS', 'state', 'draft_Round']
-selected_columns = st.multiselect("Choose columns to display in table", options=all_columns, default=default_columns)
+default_columns = ['firstname', 'lastname', 'teamName', 'year', 'role', 'G', 'ERA' if any('Pitcher' in r for r in role_filter) else 'OPS', 'state', 'draft_Round', 'is_drafted']
+selected_columns = st.multiselect("Choose columns to display in table", options=all_columns, default=[c for c in default_columns if c in all_columns])
 
 st.subheader(f"Filtered Players ({len(filtered_data):,} rows)")
 if selected_columns:
@@ -131,7 +131,7 @@ if selected_columns:
 else:
     st.dataframe(filtered_data.head(100))
 
-# Reliable state map (unchanged)
+# State map (reliable)
 st.subheader("Hometown Hot Zones (US Map)")
 if not filtered_data.empty:
     state_counts = filtered_data.groupby('state').size().reset_index(name='player_count')
