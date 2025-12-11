@@ -70,7 +70,7 @@ def load_data():
 
 data = load_data()
 
-# Sidebar Filters (unchanged)
+# Sidebar Filters
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
 team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
@@ -121,7 +121,7 @@ stat1 = st.sidebar.selectbox("Custom Stat Filter 1", options=['None'] + availabl
 filter1_applied = stat1 != 'None'
 if filter1_applied:
     direction1 = st.sidebar.radio(f"{stat1} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir1")
-    step1 = 0.1 if stat1 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90_per_PA'] else 1.0
+    step1 = 0.1 if stat1 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90/PA'] else 1.0
     value1 = st.sidebar.number_input(f"{stat1} value", value=0.0, step=step1, key="val1")
 
 stat2 = 'None'
@@ -130,7 +130,7 @@ if filter1_applied:
     stat2 = st.sidebar.selectbox("Custom Stat Filter 2", options=['None'] + remaining, index=0, key="stat2")
 if stat2 != 'None':
     direction2 = st.sidebar.radio(f"{stat2} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir2")
-    step2 = 0.1 if stat2 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90_per_PA'] else 1.0
+    step2 = 0.1 if stat2 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90/PA'] else 1.0
     value2 = st.sidebar.number_input(f"{stat2} value", value=0.0, step=step2, key="val2")
 
 # Base filtering
@@ -185,9 +185,10 @@ if stat2 != 'None' and stat2 in filtered.columns:
     else:
         filtered = filtered[filtered[stat2] <= value2]
 
-# Column selector (updated default order)
+# Column selector with your exact default order
 default_cols = ['lastname', 'firstname', 'teamName', 'year', 'Age', 'state', 'LeagueAbbr', 'experience', 'G', 'T90s', 'OPS', 'draft_Round', 'ERA', 'W', 'SV', 'IP', 'WHIP']
-cols = st.multiselect("Columns to show", options=filtered.columns.tolist(), default=[c for c in default_cols if c in filtered.columns], key="cols")
+available_default = [c for c in default_cols if c in filtered.columns]
+cols = st.multiselect("Columns to show", options=filtered.columns.tolist(), default=available_default, key="cols")
 
 # Export button
 csv = filtered.to_csv(index=False).encode('utf-8')
@@ -199,19 +200,12 @@ st.download_button(
 )
 
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
-# Display table with frozen columns after 'year' (index + first 4 columns frozen)
-if not filtered.empty:
-    display_df = filtered[cols] if cols else filtered.head(100)
-    st.dataframe(
-        display_df.style.set_properties(**{'text-align': 'left'}),
-        use_container_width=True,
-        column_config={
-            col: st.column_config.Column(width="medium") for col in display_df.columns
-        },
-        hide_index=False  # Keeps the row numbers visible if you want them
-    )
-else:
-    st.write("No players match the current filters.")
+display_df = filtered[cols] if cols else filtered.head(100)
+st.dataframe(
+    display_df,
+    use_container_width=True,
+    hide_index=True  # removes the gray left index
+)
 
 # State map with dark background
 st.subheader("Hometown Hot Zones (US Map)")
