@@ -54,6 +54,11 @@ def load_data():
     df['T90_per_PA'] = df['T90s'] / df['PA'].replace(0, np.nan)
     df['T90_per_PA'] = df['T90_per_PA'].fillna(0)
 
+    # Clean numeric columns for sliders
+    df['Age'] = pd.to_numeric(df['Age'], errors='coerce')
+    df['ht'] = pd.to_numeric(df['ht'], errors='coerce')
+    df['WT'] = pd.to_numeric(df['WT'], errors='coerce')
+
     return df
 
 data = load_data()
@@ -70,15 +75,24 @@ region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['regi
 min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0, key="min_games")
 drafted_filter = st.sidebar.radio("Drafted Status", ["All", "Drafted Only", "Undrafted Only"], key="drafted")
 
-# NEW: Position, Bats, Throws, Age, Height, Weight
+# Position, Bats, Throws
 position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'].dropna().unique()), key="posit")
 bats_filter = st.sidebar.multiselect("Bats", options=sorted(data['Bats'].dropna().unique()), key="bats")
 throws_filter = st.sidebar.multiselect("Throws", options=sorted(data['Throws'].dropna().unique()), key="throws")
-age_range = st.sidebar.slider("Age Range", min_value=int(data['Age'].min()), max_value=int(data['Age'].max()), value=(int(data['Age'].min()), int(data['Age'].max())), key="age")
-ht_range = st.sidebar.slider("Height (inches)", min_value=int(data['ht'].min()), max_value=int(data['ht'].max()), value=(int(data['ht'].min()), int(data['ht'].max())), key="ht")
-wt_range = st.sidebar.slider("Weight (lbs)", min_value=int(data['WT'].min()), max_value=int(data['WT'].max()), value=(int(data['WT'].min()), int(data['WT'].max())), key="wt")
 
-# NEW: Player name search
+# Age, Height, Weight sliders (with safe min/max)
+age_min = int(data['Age'].min()) if data['Age'].notna().any() else 17
+age_max = int(data['Age'].max()) if data['Age'].notna().any() else 25
+ht_min = int(data['ht'].min()) if data['ht'].notna().any() else 60
+ht_max = int(data['ht'].max()) if data['ht'].notna().any() else 80
+wt_min = int(data['WT'].min()) if data['WT'].notna().any() else 150
+wt_max = int(data['WT'].max()) if data['WT'].notna().any() else 250
+
+age_range = st.sidebar.slider("Age Range", min_value=age_min, max_value=age_max, value=(age_min, age_max), key="age")
+ht_range = st.sidebar.slider("Height (inches)", min_value=ht_min, max_value=ht_max, value=(ht_min, ht_max), key="ht")
+wt_range = st.sidebar.slider("Weight (lbs)", min_value=wt_min, max_value=wt_max, value=(wt_min, wt_max), key="wt")
+
+# Player name search
 name_search = st.sidebar.text_input("Search Player Name", key="name_search")
 
 # Draft round slider
@@ -114,9 +128,9 @@ filtered = data[
     data['role'].isin(role_filter) &
     data['year'].between(*year_filter) &
     (data['G'] >= min_games) &
-    data['Age'].between(*age_range) &
-    data['ht'].between(*ht_range) &
-    data['WT'].between(*wt_range)
+    data['Age'].between(age_range[0], age_range[1]) &
+    data['ht'].between(ht_range[0], ht_range[1]) &
+    data['WT'].between(wt_range[0], wt_range[1])
 ]
 if league_filter:
     filtered = filtered[filtered['LeagueAbbr'].isin(league_filter)]
@@ -135,13 +149,13 @@ if throws_filter:
 if name_search:
     filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) | filtered['lastname'].str.contains(name_search, case=False, na=False)]
 
-# Draft status
+# Draft status filter
 if drafted_filter == "Drafted Only":
     filtered = filtered[filtered['is_drafted']]
 elif drafted_filter == "Undrafted Only":
     filtered = filtered[~filtered['is_drafted']]
 
-# Draft round
+# Draft round filter
 filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
 
 # Custom stat filters
