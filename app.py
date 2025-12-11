@@ -66,6 +66,10 @@ def load_data():
     # Clean and standardize position
     df['posit'] = df['posit'].str.upper().str.strip()
 
+    # Fix Miami / Miami-Ohio duplication
+    # Change teamName to "Miami-Ohio" when LeagueAbbr is "MAC"
+    df.loc[df['LeagueAbbr'] == 'MAC', 'teamName'] = 'Miami-Ohio'
+
     return df
 
 data = load_data()
@@ -266,7 +270,7 @@ with hitter_col1:
         if not ops_qual.empty:
             top_ops = ops_qual.nlargest(50, 'OPS')[['firstname', 'lastname', 'teamName', 'year', 'OPS', 'PA', 'G']]
             top_ops = top_ops.reset_index(drop=True)
-            top_ops.index = top_ops.index + 1  # Rank 1,2,3...
+            top_ops.index = top_ops.index + 1
             st.write("**Top 50 Highest OPS Hitters (min 100 PA)**")
             st.dataframe(top_ops, use_container_width=True, hide_index=False)
         else:
