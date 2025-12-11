@@ -44,7 +44,7 @@ df = load_data()
 # (Copy the filter code from the previous message — it's unchanged)
 
 # ====================== PINPOINT MAP (fixed & beautiful) ======================
-st.subheader(f"Player High School Locations • {len(filtered):,} players")
+st.subheader(f"Player High School Locations • {len(filtered_data):,} players")
 
 if not filtered.empty:
     # For now, use state-level centers (we'll add real city geocoding next)
