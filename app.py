@@ -59,6 +59,10 @@ def load_data():
     df['ht'] = pd.to_numeric(df['ht'], errors='coerce')
     df['WT'] = pd.to_numeric(df['WT'], errors='coerce')
 
+    # Clean Bats and Throws
+    df['Bats'] = df['Bats'].str.upper().replace('B', 'S')  # B/S -> S
+    df['Throws'] = df['Throws'].str.upper()  # l/r -> L/R
+
     return df
 
 data = load_data()
@@ -75,8 +79,8 @@ drafted_filter = st.sidebar.radio("Drafted Status", ["All", "Drafted Only", "Und
 
 # Position, Bats, Throws
 position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'].dropna().unique()), key="posit")
-bats_filter = st.sidebar.multiselect("Bats", options=sorted(data['Bats'].dropna().unique()), key="bats")
-throws_filter = st.sidebar.multiselect("Throws", options=sorted(data['Throws'].dropna().unique()), key="throws")
+bats_filter = st.sidebar.multiselect("Bats", options=['L', 'R', 'S'], key="bats")
+throws_filter = st.sidebar.multiselect("Throws", options=['L', 'R'], key="throws")
 
 # Height and Weight sliders - safe defaults
 ht_min = int(data['ht'].min()) if data['ht'].notna().any() else 60
@@ -209,7 +213,7 @@ with col3:
         st.write("**Top 50 T90 per PA**")
         st.dataframe(top_t90)
 
-# State map (fixed typo in 'player_count')
+# State map
 st.subheader("Hometown Hot Zones (US Map)")
 if not filtered.empty:
     state_counts = filtered.groupby('state').size().reset_index(name='player_count')
