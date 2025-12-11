@@ -124,16 +124,16 @@ if sort_by != 'None':
 
 # Column selector
 default_cols = ['firstname','lastname','teamName','year','role','G','state','region','draft_Round','is_drafted']
-cols = st.mult iselect("Columns to show", options=filtered.columns.tolist(), default=default_cols)
+cols = st.multiselect("Columns to show", options=filtered.columns.tolist(), default=default_cols)
 
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
 st.dataframe(filtered[cols] if cols else filtered.head(100))
 
-# State map
+# State map (fixed syntax)
 st.subheader("Hometown Hot Zones (US Map)")
 if not filtered.empty:
     state_counts = filtered.groupby('state').size().reset_index(name='player_count')
-    fig_map = px.choropleth,b state_counts, locations='state', locationmode='USA-states', color='player_count',
+    fig_map = px.choropleth(state_counts, locations='state', locationmode='USA-states', color='player_count',
                             scope='usa', color_continuous_scale='Reds', title='Hot Zones by State')
     st.plotly_chart(fig_map, use_container_width=True)
 
