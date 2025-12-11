@@ -201,13 +201,29 @@ st.download_button(
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
 st.dataframe(filtered[cols] if cols else filtered.head(100))
 
-# State map
+# State map with dark background to match the app
 st.subheader("Hometown Hot Zones (US Map)")
 if not filtered.empty:
     state_counts = filtered.groupby('state').size().reset_index(name='player_count')
-    fig_map = px.choropleth(state_counts, locations='state', locationmode='USA-states', color='player_count',
-                            scope='usa', color_continuous_scale='Reds', title='Hot Zones by State')
-    st.plotly_chart(fig_map, use_container_width=True)
+    fig_map = px.choropleth(
+        state_counts,
+        locations='state',
+        locationmode='USA-states',
+        color='player_count',
+        scope='usa',
+        color_continuous_scale='Reds',
+        title='Hot Zones by State'
+    )
+    # Dark background to match the app theme
+    fig_map.update_layout(
+        paper_bgcolor='#0E1117',  # Dark near-black background
+        plot_bgcolor='#0E1117',
+        font_color='white',
+        geo_bgcolor='#0E1117'
+    )
+    st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
+else:
+    st.write("No data matches filters.")
 
 # Recruitment patterns
 st.subheader("Recruitment Patterns (Top States per Team)")
