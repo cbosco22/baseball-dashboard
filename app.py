@@ -196,7 +196,6 @@ if st.sidebar.button("Send", key="hf_send"):
             with st.spinner("Thinking…"):
                 from huggingface_hub import InferenceClient
 
-                # Tiny safe summary
                 summary = f"""
                 Current data: {len(filtered)} players
                 Columns: {', '.join(filtered.columns.tolist())}
@@ -206,8 +205,7 @@ if st.sidebar.button("Send", key="hf_send"):
                 Answer concisely, use tables when helpful.
                 """
 
-                # FIXED: Use "gpt2" (always works for text generation)
-                client = InferenceClient(model="gpt2")
+                client = InferenceClient(model="gpt2")  # This model always works free
                 try:
                     answer = client.text_generation(
                         summary,
@@ -216,11 +214,11 @@ if st.sidebar.button("Send", key="hf_send"):
                         do_sample=True
                     )
                 except Exception as e:
-                    answer = f"Error: {str(e)}. Try a simpler question."
+                    answer = f"Error: {str(e)}. Try a simpler question or change model."
 
                 st.session_state.hf_chat.append({"question": user_question, "answer": answer})
 
-# Show chat history (last 10)
+# Show chat history
 if st.session_state.hf_chat:
     st.sidebar.subheader("Chat History")
     for item in st.session_state.hf_chat[-10:]:
