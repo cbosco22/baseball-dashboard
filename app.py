@@ -46,14 +46,19 @@ def load_data():
         return 'Other'
     df['region'] = df['state'].apply(get_region)
 
-    # T90s and T90/PA
-    df['Singles'] = df['H'] - df['Dbl'] - df['Tpl'] - df['HR']
-    df['Singles'] = df['Singles'].fillna(0)
-    df['TotalBases'] = df['Singles'] + 2*df['Dbl'].fillna(0) + 3*df['Tpl'].fillna(0) + 4*df['HR'].fillna(0)
-    df['T90s'] = df['TotalBases'] + df['SB'].fillna(0) + df['BB'].fillna(0) + df['HBP'].fillna(0)
-    df['PA'] = df['AB'].fillna(0) + df['BB'].fillna(0) + df['HBP'].fillna(0) + df['SF'].fillna(0) + df['SH'].fillna(0)
-    df['T90/PA'] = df['T90s'] / df['PA'].replace(0, np.nan)
-    df['T90/PA'] = df['T90/PA'].fillna(0)
+    # T90s and T90/PA - ONLY for hitters (pitchers get 0)
+    df['T90s'] = 0.0
+    df['T90/PA'] = 0.0
+
+    hitter_mask = df['role'] == 'Hitter'
+    if hitter_mask.any():
+        df.loc[hitter_mask, 'Singles'] = df.loc[hitter_mask, 'H'] - df.loc[hitter_mask, 'Dbl'] - df.loc[hitter_mask, 'Tpl'] - df.loc[hitter_mask, 'HR']
+        df.loc[hitter_mask, 'Singles'] = df.loc[hitter_mask, 'Singles'].fillna(0)
+        df.loc[hitter_mask, 'TotalBases'] = df.loc[hitter_mask, 'Singles'] + 2*df.loc[hitter_mask, 'Dbl'].fillna(0) + 3*df.loc[hitter_mask, 'Tpl'].fillna(0) + 4*df.loc[hitter_mask, 'HR'].fillna(0)
+        df.loc[hitter_mask, 'T90s'] = df.loc[hitter_mask, 'TotalBases'] + df.loc[hitter_mask, 'SB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0)
+        df.loc[hitter_mask, 'PA'] = df.loc[hitter_mask, 'AB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0) + df.loc[hitter_mask, 'SF'].fillna(0) + df.loc[hitter_mask, 'SH'].fillna(0)
+        df.loc[hitter_mask, 'T90/PA'] = df.loc[hitter_mask, 'T90s'] / df.loc[hitter_mask, 'PA'].replace(0, np.nan)
+        df.loc[hitter_mask, 'T90/PA'] = df.loc[hitter_mask, 'T90/PA'].fillna(0)
 
     # Clean Bats and Throws
     df['Bats'] = df['Bats'].str.upper().replace('B', 'S')
@@ -73,21 +78,10 @@ data = load_data()
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
 team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
-
-# Default to recent 10 years for fast load
-default_start = max(int(data['year'].min()), 2015)
-default_end = int(data['year'].max())
-year_filter = st.sidebar.slider(
-    "Year Range",
-    int(data['year'].min()),
-    int(data['year'].max()),
-    (default_start, default_end),
-    key="year"
-)
-
+year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (int(data['year'].min()), int(data['year'].max())), key="year")
 state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'].unique()), key="state")
 region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()), key="region")
-min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 5, key="min_games")
+min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0, key="min_games")
 
 # Position filter
 position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'].dropna().unique()), key="posit")
@@ -269,7 +263,7 @@ with hitter_col1:
 
 with hitter_col2:
     if 'T90/PA' in filtered.columns and 'PA' in filtered.columns:
-        t90_qual = filtered[filtered['PA'] >= 100]
+        t90_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
         if not t90_qual.empty:
             top_t90 = t90_qual.nlargest(50, 'T90/PA')[['firstname', 'lastname', 'teamName', 'year', 'T90/PA', 'T90s', 'PA']]
             top_t90 = top_t90.reset_index(drop=True)
