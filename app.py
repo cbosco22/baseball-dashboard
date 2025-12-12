@@ -179,39 +179,66 @@ if not filtered.empty:
     fig_map.update_layout(paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', font_color='white', geo_bgcolor='#0E1117')
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
-# Recruitment patterns
+# Recruitment Patterns — Top States descending, schools sorted, % next to state
 st.subheader("Recruitment Patterns (Top Recruiting States)")
+
 if filtered.empty:
     st.write("No data matches current filters.")
 else:
+    # Group by state and team
     grouped = filtered.groupby(['state', 'teamName']).size().reset_index(name='count')
     
+    # Keep top 4 teams + "Other" per state
     def top_n_plus_other(g):
         if len(g) <= 5:
             return g
         top4 = g.nlargest(4, 'count')
-        other = pd.DataFrame([{'state': g.name, 'teamName': 'Other', 'count': g['count'].sum() - top4['count'].sum()}])
+        other_count = g['count'].sum() - top4['count'].sum()
+        other = pd.DataFrame([{'state': g.name, 'teamName': 'Other', 'count': other_count}])
         return pd.concat([top4, other], ignore_index=True)
     
     grouped = grouped.groupby('state').apply(top_n_plus_other).reset_index(drop=True)
     
+    # Total per state + % of all players
     state_totals = grouped.groupby('state')['count'].sum().reset_index()
     state_totals['pct'] = (state_totals['count'] / len(filtered) * 100).round(1)
     
-    state_order = state_totals.sort_values('count', ascending=False).head(15)['state'].tolist()
-    grouped = grouped[grouped['state'].isin(state_order)]
-    grouped['state'] = pd.Categorical(grouped['state'], categories=state_order, ordered=True)
-    grouped = grouped.sort_values('state')
+    # TOP 15 states by total players, descending
+    top15_states = state_totals.nlargest(15, 'count')['state'].tolist()
+    grouped = grouped[grouped['state'].isin(top15_states)]
     
-    state_labels = {s: f"{s} ({state_totals.loc[state_totals['state']==s, 'pct'].iloc[0]}%)" for s in state_order}
+    # Sort states descending (highest % at top)
+    grouped['state'] = pd.Categorical(grouped['state'], categories=top15_states, ordered=True)
+    grouped = grouped.sort_values(['state', 'count'], ascending=[True, False])
+    
+    # Add % to state label
+    state_labels = {s: f"{s} ({state_totals.loc[state_totals['state']==s, 'pct'].iloc[0]}%)" for s in top15_states}
     grouped['state_label'] = grouped['state'].map(state_labels)
     
-    fig = px.bar(grouped, x='count', y='state_label', color='teamName', orientation='h',
-                 title="Top Recruiting States — % of All Players", height=700)
-    fig.update_layout(barmode='stack', yaxis_title="", xaxis_title="Number of Players",
-                      legend_title="Team", plot_bgcolor='#0E1117', paper_bgcolor='#0E1117',
-                      font_color='white', showlegend=True,
-                      legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02))
+    # Plot
+    fig = px.bar(
+        grouped,
+        x='count',
+        y='state_label',
+        color='teamName',
+        orientation='h',
+        title="Top Recruiting States — % of All Players",
+        height=700,
+        hover_data={'count': True}
+    )
+    
+    fig.update_layout(
+        barmode='stack',
+        yaxis_title="",
+        xaxis_title="Number of Players",
+        legend_title="Team",
+        plot_bgcolor='#0E1117',
+        paper_bgcolor='#0E1117',
+        font_color='white',
+        showlegend=True,
+        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02)
+    )
+    
     st.plotly_chart(fig, use_container_width=True)
 
 # Players by Region
