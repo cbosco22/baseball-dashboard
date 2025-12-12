@@ -89,15 +89,6 @@ position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'
 bats_filter = st.sidebar.multiselect("Bats", options=['L', 'R', 'S'], key="bats")
 throws_filter = st.sidebar.multiselect("Throws", options=['L', 'R'], key="throws")
 
-# Height and Weight sliders
-ht_min = int(data['ht'].min()) if data['ht'].notna().any() else 60
-ht_max = int(data['ht'].max()) if data['ht'].notna().any() else 80
-wt_min = int(data['WT'].min()) if data['WT'].notna().any() else 150
-wt_max = int(data['WT'].max()) if data['WT'].notna().any() else 250
-
-ht_range = st.sidebar.slider("Height (inches)", min_value=ht_min, max_value=ht_max, value=(ht_min, ht_max), key="ht")
-wt_range = st.sidebar.slider("Weight (lbs)", min_value=wt_min, max_value=wt_max, value=(wt_min, wt_max), key="wt")
-
 # Player name search
 name_search = st.sidebar.text_input("Search Player Name", key="name_search")
 
