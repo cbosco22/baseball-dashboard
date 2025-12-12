@@ -266,6 +266,42 @@ if not filtered.empty:
         st.plotly_chart(px.pie(team_counts.head(20), values='count', names='teamName', title='Top 20 Teams by Player Count (%)'), use_container_width=True)
     with col2:
         st.plotly_chart(px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count'), use_container_width=True)
+# State Conference Breakdown Table
+st.subheader("State Recruiting Breakdown by Conference Tier")
+
+if filtered.empty:
+    st.write("No data matches current filters.")
+else:
+    # Count players per state and conference type
+    breakdown = filtered.groupby(['state', 'conference_type']).size().unstack(fill_value=0)
+    
+    # Ensure all three columns exist
+    for col in ['Power Conference', 'Mid Major', 'Low Major']:
+        if col not in breakdown.columns:
+            breakdown[col] = 0
+    
+    # Reorder columns
+    breakdown = breakdown[['Power Conference', 'Mid Major', 'Low Major']]
+    
+    # Total players per state
+    breakdown['Total'] = breakdown.sum(axis=1)
+    
+    # % of players going Power Conference
+    breakdown['% Power Conference'] = (breakdown['Power Conference'] / breakdown['Total'] * 100).round(1)
+    
+    # Sort by % Power descending
+    breakdown = breakdown.sort_values('% Power Conference', ascending=False)
+    
+    # Format % column
+    breakdown_display = breakdown.copy()
+    breakdown_display['% Power Conference'] = breakdown_display['% Power Conference'].astype(str) + '%'
+    
+    st.dataframe(
+        breakdown_display,
+        use_container_width=True,
+        hide_index=False
+    )
+
 
 # Top Performers — Full width, top 5 visible + scroll
 st.subheader("Top Performers (within current filters)")
@@ -333,39 +369,4 @@ if 'SO' in filtered.columns and 'IP' in filtered.columns:
         'SO',
         min_qual_col='IP',
         min_qual_value=50
-    )
-# State Conference Breakdown Table
-st.subheader("State Recruiting Breakdown by Conference Tier")
-
-if filtered.empty:
-    st.write("No data matches current filters.")
-else:
-    # Count players per state and conference type
-    breakdown = filtered.groupby(['state', 'conference_type']).size().unstack(fill_value=0)
-    
-    # Ensure all three columns exist
-    for col in ['Power Conference', 'Mid Major', 'Low Major']:
-        if col not in breakdown.columns:
-            breakdown[col] = 0
-    
-    # Reorder columns
-    breakdown = breakdown[['Power Conference', 'Mid Major', 'Low Major']]
-    
-    # Total players per state
-    breakdown['Total'] = breakdown.sum(axis=1)
-    
-    # % of players going Power Conference
-    breakdown['% Power Conference'] = (breakdown['Power Conference'] / breakdown['Total'] * 100).round(1)
-    
-    # Sort by % Power descending
-    breakdown = breakdown.sort_values('% Power Conference', ascending=False)
-    
-    # Format % column
-    breakdown_display = breakdown.copy()
-    breakdown_display['% Power Conference'] = breakdown_display['% Power Conference'].astype(str) + '%'
-    
-    st.dataframe(
-        breakdown_display,
-        use_container_width=True,
-        hide_index=False
     )
