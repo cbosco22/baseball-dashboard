@@ -181,27 +181,25 @@ if not filtered.empty:
     fig_map.update_layout(paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', font_color='white', geo_bgcolor='#0E1117')
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
-# Recruitment Patterns — ONE % number at the top of each state stack
-st.subheader("Recruitment Patterns (Top States per Team)")
-if not filtered.empty:
+# Recruitment Patterns — % of all players from each state
+st.subheader("Recruitment Patterns (Top Recruiting States)")
+if filtered.empty:
     st.write("No data matches filters.")
 else:
-    # Count players per state (regardless of team)
+    # Count players per state
     state_counts = filtered['state'].value_counts().head(15).reset_index()
     state_counts.columns = ['state', 'count']
     
-    # Calculate % of total
+    # Calculate percentage
     total_players = len(filtered)
     state_counts['percentage'] = (state_counts['count'] / total_players * 100).round(1)
     
-    # Sort by count descending
-    state_counts = state_counts.sort_values('count', ascending=True)
-    
+    # Horizontal bar chart
     fig = px.bar(
-        state_counts,
+        state_counts.sort_values('count'),
         x='count',
         y='state',
-        orientation='h',  # horizontal bars
+        orientation='h',
         text=state_counts['percentage'].astype(str) + '%',
         title="Top Recruiting States — % of All Players",
         height=600
@@ -209,7 +207,7 @@ else:
     
     fig.update_traces(
         textposition='outside',
-        marker_color='#E91E63'  # nice pink/red that pops on dark
+        marker_color='#E91E63'
     )
     
     fig.update_layout(
