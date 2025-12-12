@@ -83,7 +83,12 @@ data = load_data()
 # Filters
 year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (2015, int(data['year'].max())), key="year")
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
+
+# Good Players Only toggle + description
 good_players_only = st.sidebar.checkbox("Good Players Only", key="good_players")
+if good_players_only:
+    st.sidebar.caption("Pitchers: >30 IP, WHIP <1.35\nHitters: T90/PA >.550")
+    
 league_filter = st.sidebar.multiselect("Conference", sorted(data['LeagueAbbr'].unique()), key="league")
 conference_type_filter = st.sidebar.multiselect("Conference Type", options=['Power Conference', 'Mid Major', 'Low Major'], key="conference_type")
 academic_school_filter = st.sidebar.radio("School Academic Level", ["All", "Top 60 Academic"], key="academic_school")
