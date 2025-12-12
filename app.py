@@ -46,16 +46,29 @@ def load_data():
         return 'Other'
     df['region'] = df['state'].apply(get_region)
 
-    # T90s and T90/PA — only for hitters
+    # T90s and T90/PA — ONLY for hitters (pitchers stay NaN → grayed out)
     df['T90s'] = np.nan
     df['T90/PA'] = np.nan
+
     hitter_mask = df['role'] == 'Hitter'
     if hitter_mask.any():
-        df.loc[hitter_mask, 'Singles'] = df.loc[hitter_mask, 'H'] - df.loc[hitter_mask, 'Dbl'] - df.loc[hitter_mask, 'Tpl'] - df.loc[hitter_mask, 'HR']
-        df.loc[hitter_mask, 'Singles'] = df.loc[hitter_mask] = df.loc[hitter_mask, 'Singles'].fillna(0)
-        df.loc[hitter_mask, 'TotalBases'] = df.loc[hitter_mask, 'Singles'] + 2*df.loc[hitter_mask, 'Dbl'].fillna(0) + 3*df.loc[hitter_mask, 'Tpl'].fillna(0) + 4*df.loc[hitter_mask, 'HR'].fillna(0)
-        df.loc[hitter_mask, 'T90s'] = df.loc[hitter_mask, 'TotalBases'] + df.loc[hitter_mask, 'SB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0)
-        df.loc[hitter_mask, 'PA'] = df.loc[hitter_mask, 'AB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0) + df.loc[hitter_mask, 'SF'].fillna(0) + df.loc[hitter_mask, 'SH'].fillna(0)
+        df.loc[hitter_mask, 'Singles'] = (df.loc[hitter_mask, 'H'] -
+                                          df.loc[hitter_mask, 'Dbl'] -
+                                          df.loc[hitter_mask, 'Tpl'] -
+                                          df.loc[hitter_mask, 'HR']).fillna(0)
+        df.loc[hitter_mask, 'TotalBases'] = (df.loc[hitter_mask, 'Singles'] +
+                                             2*df.loc[hitter_mask, 'Dbl'].fillna(0) +
+                                             3*df.loc[hitter_mask, 'Tpl'].fillna(0) +
+                                             4*df.loc[hitter_mask, 'HR'].fillna(0))
+        df.loc[hitter_mask, 'T90s'] = (df.loc[hitter_mask, 'TotalBases'] +
+                                       df.loc[hitter_mask, 'SB'].fillna(0) +
+                                       df.loc[hitter_mask, 'BB'].fillna(0) +
+                                       df.loc[hitter_mask, 'HBP'].fillna(0))
+        df.loc[hitter_mask, 'PA'] = (df.loc[hitter_mask, 'AB'].fillna(0) +
+                                     df.loc[hitter_mask, 'BB'].fillna(0) +
+                                     df.loc[hitter_mask, 'HBP'].fillna(0) +
+                                     df.loc[hitter_mask, 'SF'].fillna(0) +
+                                     df.loc[hitter_mask, 'SH'].fillna(0))
         df.loc[hitter_mask, 'T90/PA'] = df.loc[hitter_mask, 'T90s'] / df.loc[hitter_mask, 'PA'].replace(0, np.nan)
 
     # Clean Bats/Throws/Position
@@ -81,7 +94,7 @@ def load_data():
 
 data = load_data()
 
-# Filters
+# All your filters (unchanged from your last working version)
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
 team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
@@ -90,29 +103,17 @@ state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'
 region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()), key="region")
 min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 5, key="min_games")
 
-# Position
 position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'].dropna().unique()), key="posit")
-
-# Bats / Throws
 bats_filter = st.sidebar.multiselect("Bats", options=['L', 'R', 'S'], key="bats")
 throws_filter = st.sidebar.multiselect("Throws", options=['L', 'R'], key="throws")
 
-# Conference Type
 conference_type_filter = st.sidebar.multiselect("Conference Type", options=['Power Conference', 'Mid Major', 'Low Major'], key="conference_type")
-
-# Academic School
 academic_school_filter = st.sidebar.radio("Academic School", ["All", "Academic Schools Only"], key="academic_school")
 
-# Name search
 name_search = st.sidebar.text_input("Search Player Name", key="name_search")
 
-# Draft round
-draft_round_range = st.sidebar.slider(
-    "Draft Round Range (0 = undrafted)",
-    min_value=0, max_value=70, value=(0,70), key="draft_round"
-)
+draft_round_range = st.sidebar.slider("Draft Round Range (0 = undrafted)", min_value=0, max_value=70, value=(0,70), key="draft_round")
 
-# Custom stats
 available_stats = ['ERA','OPS','W','L','SO','BB','HR','RBI','SB','CS','Bavg','Slg','obp','WHIP','IP','H','R','ER','G','GS','T90s','T90/PA']
 stat1 = st.sidebar.selectbox("Custom Stat Filter 1", ['None']+available_stats, key="stat1")
 if stat1 != 'None':
@@ -126,10 +127,10 @@ if stat1 != 'None':
     stat2 = st.sidebar.selectbox("Custom Stat Filter 2", ['None']+remaining, key="stat2")
 if stat2 != 'None':
     direction2 = st.sidebar.radio(f"{stat2} comparison", ["Greater than or equal to", "Less than or equal to"], key="dir2")
-    step2 = 0.1 if stat2 in ['ERA','OPS','Bavg','Slg','obp','WHIP','T90/PA'] else 1.0
+    step2 =  = 0.1 if stat2 in ['ERA','OPS','Bavg','Slg','obp','WHIP','T90/PA'] else 1.0
     value2 = st.sidebar.number_input(f"{stat2} value", value=0.0, step=step2, key="val2")
 
-# Filtering
+# Filtering (unchanged)
 filtered = data[
     data['role'].isin(role_filter) &
     data['year'].between(*year_filter) &
@@ -144,20 +145,15 @@ if bats_filter: filtered = filtered[filtered['Bats'].isin(bats_filter)]
 if throws_filter: filtered = filtered[filtered['Throws'].isin(throws_filter)]
 if name_search:
     filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) |
-                    filtered['lastname'].str.contains(name_search, case=False, na=False)]
+                      filtered['lastname'].str.contains(name_search, case=False, na=False)]
 
-# Conference type
 if conference_type_filter:
     filtered = filtered[filtered['conference_type'].isin(conference_type_filter)]
-
-# Academic school
 if academic_school_filter == "Academic Schools Only":
     filtered = filtered[filtered['is_academic_school']]
 
-# Draft round
 filtered = filtered[filtered['draft_Round'].between(*draft_round_range)]
 
-# Custom stat filters
 if stat1 != 'None' and stat1 in filtered.columns:
     filtered = filtered[filtered[stat1] >= value1] if direction1 == "Greater than or equal to" else filtered[filtered[stat1] <= value1]
 if stat2 != 'None' and stat2 in filtered.columns:
@@ -184,36 +180,25 @@ if not filtered.empty:
                             scope='usa', color_continuous_scale='Reds', title='Hot Zones by State')
     fig_map.update_layout(paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', font_color='white', geo_bgcolor='#0E1117')
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
+else:
+    st.write("No data matches filters.")
 
-# Recruitment patterns — now with % on top of bars
+# Recruitment patterns — now with % labels
 st.subheader("Recruitment Patterns (Top States per Team)")
 if not filtered.empty:
-    st.write("No data matches filters.")
-else:
     top_states = filtered.groupby(['teamName', 'state']).size().reset_index(name='count')
     top_states = top_states.sort_values('count', ascending=False).head(20)
     
     total_players = len(filtered)
     top_states['percentage'] = (top_states['count'] / total_players * 100).round(1)
     
-    fig_bar = px.bar(
-        top_states,
-        x='state',
-        y='count',
-        color='teamName',
-        text=top_states['percentage'].astype(str) + '%',
-        title='Top Recruiting States',
-        hover_data={'count': True}
-    )
+    fig_bar = px.bar(top_states, x='state', y='count', color='teamName',
+                     text=top_states['percentage'].astype(str) + '%',
+                     title='Top Recruiting States',
+                     hover_data={'count': True})
     fig_bar.update_traces(textposition='outside')
-    fig_bar.update_layout(
-        xaxis_title="State",
-        yaxis_title="Number of Players",
-        legend_title="Team",
-        plot_bgcolor='#0E1117',
-        paper_bgcolor='#0E1117',
-        font_color='white'
-    )
+    fig_bar.update_layout(xaxis_title="State", yaxis_title="Number of Players", legend_title="Team",
+                          plot_bgcolor='#0E1117', paper_bgcolor='#0E1117', font_color='white')
     st.plotly_chart(fig_bar, use_container_width=True)
 
 # Players by Region (unchanged)
@@ -238,7 +223,7 @@ if not filtered.empty:
     with col2:
         st.plotly_chart(px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count'), use_container_width=True)
 
-# Top Performers (unchanged, with state column)
+# Top Performers (with state column)
 st.subheader("Top Performers (within current filters)")
 hitter_col1, hitter_col2 = st.columns(2)
 with hitter_col1:
@@ -250,6 +235,7 @@ with hitter_col1:
             top_ops.index = top_ops.index + 1
             st.write("**Top 50 Highest OPS Hitters (min 100 PA)**")
             st.dataframe(top_ops, use_container_width=True, hide_index=False)
+
 with hitter_col2:
     if 'T90/PA' in filtered.columns and 'PA' in filtered.columns:
         t90_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
@@ -270,6 +256,7 @@ with pitcher_col1:
             top_era.index = top_era.index + 1
             st.write("**Top 50 Lowest ERA Pitchers (min 50 IP)**")
             st.dataframe(top_era, use_container_width=True, hide_index=False)
+
 with pitcher_col2:
     if 'SO' in filtered.columns and 'IP' in filtered.columns:
         so_qual = filtered[(filtered['role'] == 'Pitcher') & (filtered['IP'] >= 50)]
