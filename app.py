@@ -161,51 +161,63 @@ if not filtered.empty:
     fig_map.update_layout(paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', font_color='white', geo_bgcolor='#0E1117')
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
-# Recruitment Patterns — stacked by school + ONE % label per state
+# Recruitment Patterns — stacked by top schools + % of all players next to state name
 st.subheader("Recruitment Patterns (Top Recruiting States)")
 
 if filtered.empty:
     st.write("No data matches current filters.")
 else:
-    # Get top 15 states by total players
-    top_states = filtered['state'].value_counts().head(15).index
+    # Group by state and team, keep only top 4 teams per state + "Other"
+    grouped = filtered.groupby(['state', 'teamName']).size().reset_index(name='count')
     
-    # Keep only those states
-    plot_data = filtered[filtered['state'].isin(top_states)]
+    # For each state, keep top 4 teams and lump the rest into "Other"
+    def top_n_plus_other(g):
+        if len(g) <= 5:
+            return g
+        top4 = g.nlargest(4, 'count')
+        other_count = g['count'].sum() - top4['count'].sum()
+        other_row = pd.DataFrame([{'state': g.name, 'teamName': 'Other', 'count': other_count}])
+        return pd.concat([top4, other_row], ignore_index=True)
     
-    # Group by state + team
-    grouped = plot_data.groupby(['state', 'teamName']).size().reset_index(name='count')
+    grouped = grouped.groupby('state').apply(top_n_plus_other).reset_index(drop=True)
     
-    # Add % of TOTAL players (not per state)
+    # Calculate % of total players for each STATE
     total_players = len(filtered)
-    grouped['percentage'] = (grouped['count'] / total_players * 100).round(1)
+    state_totals = grouped.groupby('state')['count'].sum().reset_index()
+    state_totals['pct'] = (state_totals['count'] / total_players * 100).round(1)
+    state_totals['label'] = state_totals['state'] + " (" + state_totals['pct'].astype(str) + "%)"
     
-    # Sort states by total count descending for nice order
-    state_order = grouped.groupby('state')['count'].sum().sort_values(ascending=False).index
+    # Merge label back
+    grouped = grouped.merge(state_totals[['state', 'label']], on='state')
+    
+    # Sort states by total count
+    state_order = state_totals.sort_values('count', ascending=False).head(15)['state']
+    grouped = grouped[grouped['state'].isin(state_order)]
     grouped['state'] = pd.Categorical(grouped['state'], categories=state_order, ordered=True)
     grouped = grouped.sort_values(['state', 'count'], ascending=[True, False])
     
+    # Plot
     fig = px.bar(
         grouped,
         x='count',
-        y='state',
+        y='label',
         color='teamName',
         orientation='h',
-        text=grouped['percentage'].astype(str) + '%',
         title="Top Recruiting States — % of All Players",
         height=700,
         hover_data={'count': True}
     )
     
-    fig.update_traces(textposition='outside')
+    fig.update_traces(textposition='inside')
     fig.update_layout(
         barmode='stack',
-        legend_title="Team",
+        yaxis_title="",
         xaxis_title="Number of Players",
-        yaxis_title="State",
+        legend_title="Team",
         plot_bgcolor='#0E1117',
         paper_bgcolor='#0E1117',
         font_color='white',
+        showlegend=True,
         legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02)
     )
     
