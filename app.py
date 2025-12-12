@@ -69,6 +69,30 @@ def load_data():
     # Fix Miami / Miami-Ohio
     df.loc[(df['teamName'] == 'Miami') & (df['LeagueAbbr'] == 'MAC'), 'teamName'] = 'Miami-Ohio'
 
+    # Power Conference / Mid Major / Low Major classification
+    power_conferences = [
+        'Atlantic Coast Conference',
+        'Big 12 Conference',
+        'Big Ten Conference',
+        'Pacific-10 Conference',
+        'Pacific-12 Conference',
+        'Southeastern Conference'
+    ]
+    low_major_conferences = [
+        'Big South Conference',
+        'Patriot League',
+        'Ivy League',
+        'America East Conference',
+        'Metro Atlantic Athletic Conference',
+        'Northeast Conference',
+        'Southwest Athletic Conference',
+        'Horizon League'
+    ]
+
+    df['conference_type'] = 'Mid Major'  # default
+    df.loc[df['leagueName'].isin(power_conferences), 'conference_type'] = 'Power Conference'
+    df.loc[df['leagueName'].isin(low_major_conferences), 'conference_type'] = 'Low Major'
+
     return df
 
 data = load_data()
@@ -77,20 +101,13 @@ data = load_data()
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
 team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
-# Default to 2015–2025 for fast initial load
-default_start = max(int(data['year'].min()), 2015)
-default_end = int(data['year'].max())
-year_filter = st.sidebar.slider(
-    "Year Range",
-    int(data['year'].min()),
-    int(data['year'].max()),
-    (default_start, default_end),
-    key="year"
-)
+year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (int(data['year'].min()), int(data['year'].max())), key="year")
 state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'].unique()), key="state")
 region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()), key="region")
-# Default min games to 5 for reasonable initial view
-min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 5, key="min_games")
+min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0, key="min_games")
+
+# NEW: Conference Type filter (Power, Mid Major, Low Major)
+conference_type_filter = st.sidebar.multiselect("Conference Type", options=['Power Conference', 'Mid Major', 'Low Major'], key="conference_type")
 
 # Position filter
 position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'].dropna().unique()), key="posit")
@@ -153,6 +170,10 @@ if throws_filter:
     filtered = filtered[filtered['Throws'].isin(throws_filter)]
 if name_search:
     filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) | filtered['lastname'].str.contains(name_search, case=False, na=False)]
+
+# NEW: Conference Type filter
+if conference_type_filter:
+    filtered = filtered[filtered['conference_type'].isin(conference_type_filter)]
 
 # Draft round filter
 filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
@@ -262,7 +283,7 @@ with hitter_col1:
     if 'OPS' in filtered.columns and 'PA' in filtered.columns:
         ops_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
         if not ops_qual.empty:
-            top_ops = ops_qual.nlargest(50, 'OPS')[['firstname', 'lastname', 'teamName', 'year', 'state', 'OPS', 'PA', 'G']]
+            top_ops = ops_qual.nlargest(50, 'OPS')[['firstname', 'lastname', 'teamName', 'year', 'OPS', 'PA', 'G']]
             top_ops = top_ops.reset_index(drop=True)
             top_ops.index = top_ops.index + 1
             st.write("**Top 50 Highest OPS Hitters (min 100 PA)**")
@@ -274,7 +295,7 @@ with hitter_col2:
     if 'T90/PA' in filtered.columns and 'PA' in filtered.columns:
         t90_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
         if not t90_qual.empty:
-            top_t90 = t90_qual.nlargest(50, 'T90/PA')[['firstname', 'lastname', 'teamName', 'year', 'state', 'T90/PA', 'T90s', 'PA']]
+            top_t90 = t90_qual.nlargest(50, 'T90/PA')[['firstname', 'lastname', 'teamName', 'year', 'T90/PA', 'T90s', 'PA']]
             top_t90 = top_t90.reset_index(drop=True)
             top_t90.index = top_t90.index + 1
             st.write("**Top 50 T90/PA (min 100 PA)**")
@@ -289,7 +310,7 @@ with pitcher_col1:
     if 'ERA' in filtered.columns and 'IP' in filtered.columns:
         era_qual = filtered[(filtered['role'] == 'Pitcher') & (filtered['IP'] >= 50)]
         if not era_qual.empty:
-            top_era = era_qual.nsmallest(50, 'ERA')[['firstname', 'lastname', 'teamName', 'year', 'state', 'ERA', 'IP', 'G']]
+            top_era = era_qual.nsmallest(50, 'ERA')[['firstname', 'lastname', 'teamName', 'year', 'ERA', 'IP', 'G']]
             top_era = top_era.reset_index(drop=True)
             top_era.index = top_era.index + 1
             st.write("**Top 50 Lowest ERA Pitchers (min 50 IP)**")
@@ -301,7 +322,7 @@ with pitcher_col2:
     if 'SO' in filtered.columns and 'IP' in filtered.columns:
         so_qual = filtered[(filtered['role'] == 'Pitcher') & (filtered['IP'] >= 50)]
         if not so_qual.empty:
-            top_so = so_qual.nlargest(50, 'SO')[['firstname', 'lastname', 'teamName', 'year', 'state', 'SO', 'IP', 'G']]
+            top_so = so_qual.nlargest(50, 'SO')[['firstname', 'lastname', 'teamName', 'year', 'SO', 'IP', 'G']]
             top_so = top_so.reset_index(drop=True)
             top_so.index = top_so.index + 1
             st.write("**Top 50 Highest Strikeout Pitchers (min 50 IP)**")
