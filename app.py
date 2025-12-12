@@ -46,10 +46,9 @@ def load_data():
         return 'Other'
     df['region'] = df['state'].apply(get_region)
 
-    # T90s and T90/PA - ONLY for hitters (pitchers get NaN → grayed out in table)
+    # T90s and T90/PA - ONLY for hitters
     df['T90s'] = np.nan
     df['T90/PA'] = np.nan
-
     hitter_mask = df['role'] == 'Hitter'
     if hitter_mask.any():
         df.loc[hitter_mask, 'Singles'] = df.loc[hitter_mask, 'H'] - df.loc[hitter_mask, 'Dbl'] - df.loc[hitter_mask, 'Tpl'] - df.loc[hitter_mask, 'HR']
@@ -63,11 +62,30 @@ def load_data():
     df['Bats'] = df['Bats'].str.upper().replace('B', 'S')
     df['Throws'] = df['Throws'].str.upper()
 
-    # Clean and standardize position
+    # Clean position
     df['posit'] = df['posit'].str.upper().str.strip()
 
-    # Fix Miami / Miami-Ohio
+    # Miami / Miami-Ohio fix
     df.loc[(df['teamName'] == 'Miami') & (df['LeagueAbbr'] == 'MAC'), 'teamName'] = 'Miami-Ohio'
+
+    # Power / Mid Major / Low Major
+    power_conferences = ['Atlantic Coast Conference','Big 12 Conference','Big Ten Conference','Pacific-10 Conference','Pacific-12 Conference','Southeastern Conference']
+    low_major_conferences = ['Big South Conference','Patriot League','Ivy League','America East Conference','Metro Atlantic Athletic Conference','Northeast Conference','Southwest Athletic Conference','Horizon League']
+    df['conference_type'] = 'Mid Major'
+    df.loc[df['leagueName'].isin(power_conferences), 'conference_type'] = 'Power Conference'
+    df.loc[df['leagueName'].isin(low_major_conferences), 'conference_type'] = 'Low Major'
+
+    # Academic School flag
+    academic_schools = [
+        'Air Force','Army','Boston College','Brown','Bryant','Bryant University','Bucknell','California',
+        'Columbia','Cornell','Dartmouth','Davidson','Davidson College','Duke','Fordham','Georgetown',
+        'Georgia Tech','Harvard','Holy Cross','Lafayette','Lafayette College','Lehigh','Maryland',
+        'Massachusetts','Michigan','Navy','New Jersey Tech','North Carolina','Northeastern','Northwestern',
+        'Notre Dame','Penn','Pennsylvania','Princeton','Purdue','Rice','Richmond','Stanford',
+        'Tulane','UC Davis','UC Irvine','UC San Diego','UC Santa Barbara','UCLA','USC','Vanderbilt',
+        'Villanova','Virginia','Wake Forest','Washington','William and Mary','Wofford','Yale'
+    ]
+    df['is_academic_school'] = df['teamName'].isin(academic_schools)
 
     return df
 
@@ -77,10 +95,16 @@ data = load_data()
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
 team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
-year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (int(data['year'].min()), int(data['year'].max())), key="year")
+year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (2015, int(data['year'].max())), key="year")
 state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'].unique()), key="state")
 region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()), key="region")
-min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0, key="min_games")
+min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 5, key="min_games")
+
+# Conference Type filter
+conference_type_filter = st.sidebar.multiselect("Conference Type", options=['Power Conference', 'Mid Major', 'Low Major'], key="conference_type")
+
+# Academic School filter
+academic_school_filter = st.sidebar.radio("Academic School", ["All", "Academic Schools Only"], key="academic_school")
 
 # Position filter
 position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'].dropna().unique()), key="posit")
@@ -101,7 +125,7 @@ draft_round_range = st.sidebar.slider(
     key="draft_round"
 )
 
-# Custom Stat Filters
+# Custom Stat Filters (unchanged)
 available_stats = ['ERA', 'OPS', 'W', 'L', 'SO', 'BB', 'HR', 'RBI', 'SB', 'CS', 'Bavg', 'Slg', 'obp', 'WHIP', 'IP', 'H', 'R', 'ER', 'G', 'GS', 'T90s', 'T90/PA']
 
 stat1 = st.sidebar.selectbox("Custom Stat Filter 1", options=['None'] + available_stats, index=0, key="stat1")
@@ -144,6 +168,14 @@ if throws_filter:
 if name_search:
     filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) | filtered['lastname'].str.contains(name_search, case=False, na=False)]
 
+# Conference Type filter
+if conference_type_filter:
+    filtered = filtered[filtered['conference_type'].isin(conference_type_filter)]
+
+# Academic School filter
+if academic_school_filter == "Academic Schools Only":
+    filtered = filtered[filtered['is_academic_school']]
+
 # Draft round filter
 filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
 
@@ -176,8 +208,6 @@ st.download_button(
 )
 
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
-
-# Single table with horizontal scroll
 display_df = filtered[cols] if cols else filtered.head(100)
 st.dataframe(
     display_df,
@@ -242,12 +272,9 @@ if not filtered.empty:
         fig_bar_team = px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count')
         st.plotly_chart(fig_bar_team, use_container_width=True)
 
-# Top Performers (at bottom, with minimum requirements, new layout, new SO table)
+# Top Performers (at bottom, with state, no index)
 st.subheader("Top Performers (within current filters)")
-
-# Hitter tables on top row
 hitter_col1, hitter_col2 = st.columns(2)
-
 with hitter_col1:
     if 'OPS' in filtered.columns and 'PA' in filtered.columns:
         ops_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
@@ -272,7 +299,6 @@ with hitter_col2:
         else:
             st.write("**No players qualify (min 100 PA)**")
 
-# Pitcher tables on bottom row
 pitcher_col1, pitcher_col2 = st.columns(2)
 
 with pitcher_col1:
