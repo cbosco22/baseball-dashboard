@@ -46,10 +46,9 @@ def load_data():
         return 'Other'
     df['region'] = df['state'].apply(get_region)
 
-    # T90s and T90/PA — ONLY for hitters (pitchers stay NaN → grayed out)
+    # T90s and T90/PA — only for hitters
     df['T90s'] = np.nan
     df['T90/PA'] = np.nan
-
     hitter_mask = df['role'] == 'Hitter'
     if hitter_mask.any():
         df.loc[hitter_mask, 'Singles'] = (df.loc[hitter_mask, 'H'] -
@@ -76,10 +75,10 @@ def load_data():
     df['Throws'] = df['Throws'].str.upper()
     df['posit'] = df['posit'].str.upper().str.strip()
 
-    # Miami → Miami-Ohio for MAC
+    # Miami → Miami-Ohio fix
     df.loc[(df['teamName'] == 'Miami') & (df['LeagueAbbr'] == 'MAC'), 'teamName'] = 'Miami-Ohio'
 
-    # Power / Mid / Low Major
+    # Conference type
     power = ['Atlantic Coast Conference','Big 12 Conference','Big Ten Conference','Pacific-10 Conference','Pacific-12 Conference','Southeastern Conference']
     low_major = ['Big South Conference','Patriot League','Ivy League','America East Conference','Metro Atlantic Athletic Conference','Northeast Conference','Southwest Athletic Conference','Horizon League']
     df['conference_type'] = 'Mid Major'
@@ -94,7 +93,7 @@ def load_data():
 
 data = load_data()
 
-# All your filters (unchanged from your last working version)
+# Filters
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
 team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
@@ -112,7 +111,7 @@ academic_school_filter = st.sidebar.radio("Academic School", ["All", "Academic S
 
 name_search = st.sidebar.text_input("Search Player Name", key="name_search")
 
-draft_round_range = st.sidebar.slider("Draft Round Range (0 = undrafted)", min_value=0, max_value=70, value=(0,70), key="draft_round")
+draft_round_range = st.sidebar.slider("Draft Round Range (0 = undrafted)", 0, 70, (0, 70), key="draft_round")
 
 available_stats = ['ERA','OPS','W','L','SO','BB','HR','RBI','SB','CS','Bavg','Slg','obp','WHIP','IP','H','R','ER','G','GS','T90s','T90/PA']
 stat1 = st.sidebar.selectbox("Custom Stat Filter 1", ['None']+available_stats, key="stat1")
@@ -127,15 +126,16 @@ if stat1 != 'None':
     stat2 = st.sidebar.selectbox("Custom Stat Filter 2", ['None']+remaining, key="stat2")
 if stat2 != 'None':
     direction2 = st.sidebar.radio(f"{stat2} comparison", ["Greater than or equal to", "Less than or equal to"], key="dir2")
-    step2 =  = 0.1 if stat2 in ['ERA','OPS','Bavg','Slg','obp','WHIP','T90/PA'] else 1.0
+    step2 = 0.1 if stat2 in ['ERA','OPS','Bavg','Slg','obp','WHIP','T90/PA'] else 1.0
     value2 = st.sidebar.number_input(f"{stat2} value", value=0.0, step=step2, key="val2")
 
-# Filtering (unchanged)
+# Filtering
 filtered = data[
     data['role'].isin(role_filter) &
     data['year'].between(*year_filter) &
     (data['G'] >= min_games)
 ]
+
 if league_filter: filtered = filtered[filtered['LeagueAbbr'].isin(league_filter)]
 if team_filter: filtered = filtered[filtered['teamName'].isin(team_filter)]
 if state_filter: filtered = filtered[filtered['state'].isin(state_filter)]
@@ -145,7 +145,7 @@ if bats_filter: filtered = filtered[filtered['Bats'].isin(bats_filter)]
 if throws_filter: filtered = filtered[filtered['Throws'].isin(throws_filter)]
 if name_search:
     filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) |
-                      filtered['lastname'].str.contains(name_search, case=False, na=False)]
+                 filtered['lastname'].str.contains(name_search, case=False, na=False)]
 
 if conference_type_filter:
     filtered = filtered[filtered['conference_type'].isin(conference_type_filter)]
@@ -180,8 +180,6 @@ if not filtered.empty:
                             scope='usa', color_continuous_scale='Reds', title='Hot Zones by State')
     fig_map.update_layout(paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', font_color='white', geo_bgcolor='#0E1117')
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
-else:
-    st.write("No data matches filters.")
 
 # Recruitment patterns — now with % labels
 st.subheader("Recruitment Patterns (Top States per Team)")
@@ -194,14 +192,13 @@ if not filtered.empty:
     
     fig_bar = px.bar(top_states, x='state', y='count', color='teamName',
                      text=top_states['percentage'].astype(str) + '%',
-                     title='Top Recruiting States',
-                     hover_data={'count': True})
+                     title='Top Recruiting States')
     fig_bar.update_traces(textposition='outside')
     fig_bar.update_layout(xaxis_title="State", yaxis_title="Number of Players", legend_title="Team",
                           plot_bgcolor='#0E1117', paper_bgcolor='#0E1117', font_color='white')
     st.plotly_chart(fig_bar, use_container_width=True)
 
-# Players by Region (unchanged)
+# Players by Region
 st.subheader("Players by Region")
 if not filtered.empty:
     region_counts = filtered['region'].value_counts().reset_index()
@@ -212,7 +209,7 @@ if not filtered.empty:
     with col2:
         st.plotly_chart(px.bar(region_counts.sort_values('count', ascending=False), x='region', y='count', color='region', title='Player Count by Region'), use_container_width=True)
 
-# Players by Team (unchanged)
+# Players by Team
 st.subheader("Players by Team (within current filters)")
 if not filtered.empty:
     team_counts = filtered['teamName'].value_counts().reset_index()
@@ -223,7 +220,7 @@ if not filtered.empty:
     with col2:
         st.plotly_chart(px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count'), use_container_width=True)
 
-# Top Performers (with state column)
+# Top Performers
 st.subheader("Top Performers (within current filters)")
 hitter_col1, hitter_col2 = st.columns(2)
 with hitter_col1:
