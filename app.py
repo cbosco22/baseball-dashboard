@@ -257,7 +257,7 @@ if not filtered.empty:
         st.plotly_chart(px.bar(region_counts.sort_values('count', ascending=False), x='region', y='count', color='region', title='Player Count by Region'), use_container_width=True)
 
 # Players by Team
-st.subheader("Players by Team (within current filters)")
+st.subheader("Players by Team")
 if not filtered.empty:
     team_counts = filtered['teamName'].value_counts().reset_index()
     team_counts.columns = ['teamName', 'count']
@@ -325,7 +325,7 @@ else:
         st.plotly_chart(fig, use_container_width=True)
         
 # Top Performers — Full width, top 5 visible + scroll
-st.subheader("Top Performers (within current filters)")
+st.subheader("Top Performers")
 
 # Helper function to make a leaderboard
 def make_leaderboard(title, df, stat_col, min_qual_col=None, min_qual_value=None, ascending=False):
