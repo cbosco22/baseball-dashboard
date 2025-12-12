@@ -317,7 +317,6 @@ else:
         fig = px.pie(
             names=conf_counts.index,
             values=conf_counts.values,
-            title="Overall Conference Split",
             color_discrete_map={'Power': '#00D4AA', 'Mid Major': '#6C757D', 'Low Major': '#DC3545'},
             height=500
         )
