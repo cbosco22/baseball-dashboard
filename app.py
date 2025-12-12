@@ -161,34 +161,54 @@ if not filtered.empty:
     fig_map.update_layout(paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', font_color='white', geo_bgcolor='#0E1117')
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
-# Recruitment Patterns — ONE % number per state
+# Recruitment Patterns — stacked by school + ONE % label per state
 st.subheader("Recruitment Patterns (Top Recruiting States)")
+
 if filtered.empty:
     st.write("No data matches current filters.")
 else:
-    state_counts = filtered['state'].value_counts().head(15).reset_index()
-    state_counts.columns = ['state', 'count']
-    state_counts['pct'] = (state_counts['count'] / len(filtered) * 100).round(1)
-    state_counts = state_counts.sort_values('count')
-
+    # Get top 15 states by total players
+    top_states = filtered['state'].value_counts().head(15).index
+    
+    # Keep only those states
+    plot_data = filtered[filtered['state'].isin(top_states)]
+    
+    # Group by state + team
+    grouped = plot_data.groupby(['state', 'teamName']).size().reset_index(name='count')
+    
+    # Add % of TOTAL players (not per state)
+    total_players = len(filtered)
+    grouped['percentage'] = (grouped['count'] / total_players * 100).round(1)
+    
+    # Sort states by total count descending for nice order
+    state_order = grouped.groupby('state')['count'].sum().sort_values(ascending=False).index
+    grouped['state'] = pd.Categorical(grouped['state'], categories=state_order, ordered=True)
+    grouped = grouped.sort_values(['state', 'count'], ascending=[True, False])
+    
     fig = px.bar(
-        state_counts,
+        grouped,
         x='count',
         y='state',
+        color='teamName',
         orientation='h',
-        text=state_counts['pct'].astype(str) + '%',
-        height=600,
-        color_discrete_sequence=['#E91E63']
+        text=grouped['percentage'].astype(str) + '%',
+        title="Top Recruiting States — % of All Players",
+        height=700,
+        hover_data={'count': True}
     )
+    
     fig.update_traces(textposition='outside')
     fig.update_layout(
-        showlegend=False,
+        barmode='stack',
+        legend_title="Team",
+        xaxis_title="Number of Players",
+        yaxis_title="State",
         plot_bgcolor='#0E1117',
         paper_bgcolor='#0E1117',
         font_color='white',
-        xaxis_title="Number of Players",
-        yaxis_title="State"
+        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02)
     )
+    
     st.plotly_chart(fig, use_container_width=True)
 
 # Players by Region
