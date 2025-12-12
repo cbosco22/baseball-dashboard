@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import numpy as np
 
-st.title("College Baseball Player Dashboard")
+st.title("College Baseball Roster Analysis")
 
 # Reset button
 st.sidebar.header("Filters")
@@ -87,7 +87,7 @@ role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pit
 # Good Players Only toggle + description
 good_players_only = st.sidebar.checkbox("Good Players Only", key="good_players")
 if good_players_only:
-    st.sidebar.caption("Pitchers: IP > 30, WHIP < 1.35 // Hitters: T90/PA > .550")
+    st.sidebar.caption("Pitchers: IP > 30, WHIP < 1.35 & Hitters: T90/PA > .550")
     
 league_filter = st.sidebar.multiselect("Conference", sorted(data['LeagueAbbr'].unique()), key="league")
 conference_type_filter = st.sidebar.multiselect("Conference Type", options=['Power Conference', 'Mid Major', 'Low Major'], key="conference_type")
@@ -175,7 +175,7 @@ st.subheader(f"Filtered Players – {len(filtered):,} rows")
 st.dataframe(filtered[cols] if cols else filtered.head(100), use_container_width=True, hide_index=True)
 
 # State map
-st.subheader("Hometown Hot Zones (US Map)")
+st.subheader("Hometown Map")
 if not filtered.empty:
     state_counts = filtered.groupby('state').size().reset_index(name='player_count')
     fig_map = px.choropleth(state_counts, locations='state', locationmode='USA-states', color='player_count',
@@ -183,8 +183,8 @@ if not filtered.empty:
     fig_map.update_layout(paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', font_color='white', geo_bgcolor='#0E1117')
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
-# Recruitment Patterns — Top States descending, schools sorted, % next to state
-st.subheader("Recruitment Patterns (Top Recruiting States)")
+# Players by State — Top States descending, schools sorted, % next to state
+st.subheader("Players by State")
 
 if filtered.empty:
     st.write("No data matches current filters.")
