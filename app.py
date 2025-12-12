@@ -267,50 +267,73 @@ if not filtered.empty:
     with col2:
         st.plotly_chart(px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count'), use_container_width=True)
 
-# Top Performers
+# Top Performers — Full width, top 5 visible + scroll
 st.subheader("Top Performers (within current filters)")
-hitter_col1, hitter_col2 = st.columns(2)
-with hitter_col1:
-    if 'OPS' in filtered.columns and 'PA' in filtered.columns:
-        ops_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
-        if not ops_qual.empty:
-            top_ops = ops_qual.nlargest(50, 'OPS')[['firstname','lastname','teamName','year','state','OPS','PA','G']]
-            top_ops = top_ops.reset_index(drop=True)
-            top_ops.index = top_ops.index + 1
-            st.write("**Top 50 Highest OPS Hitters (min 100 PA)**")
-            st.dataframe(top_ops, use_container_width=True, hide_index=False)
 
-with hitter_col2:
-    if 'T90/PA' in filtered.columns and 'PA' in filtered.columns:
-        t90_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
-        if not t90_qual.empty:
-            top_t90 = t90_qual.nlargest(50, 'T90/PA')[['firstname','lastname','teamName','year','state','T90/PA','T90s','PA']]
-            top_t90 = top_t90.reset_index(drop=True)
-            top_t90.index = top_t90.index + 1
-            st.write("**Top 50 T90/PA (min 100 PA)**")
-            st.dataframe(top_t90, use_container_width=True, hide_index=False)
+# Helper function to make a leaderboard
+def make_leaderboard(title, df, stat_col, min_qual_col=None, min_qual_value=None, ascending=False):
+    if min_qual_col and min_qual_value:
+        df = df[df[min_qual_col] >= min_qual_value]
+    if df.empty:
+        st.write(f"**{title}** — No players qualify")
+        return
+    
+    top = df.nlargest(50, stat_col) if not ascending else df.nsmallest(50, stat_col)
+    top = top[['firstname', 'lastname', 'teamName', 'year', 'state', stat_col]].copy()
+    top = top.reset_index(drop=True)
+    top.index = top.index + 1
+    top = top.rename(columns={stat_col: stat_col})
+    
+    st.write(f"**{title}**")
+    st.dataframe(
+        top,
+        use_container_width=True,
+        hide_index=False,
+        height=240  # Shows ~5-6 rows, then scroll appears
+    )
 
-pitcher_col1, pitcher_col2 = st.columns(2)
-with pitcher_col1:
-    if 'ERA' in filtered.columns and 'IP' in filtered.columns:
-        era_qual = filtered[(filtered['role'] == 'Pitcher') & (filtered['IP'] >= 50)]
-        if not era_qual.empty:
-            top_era = era_qual.nsmallest(50, 'ERA')[['firstname','lastname','teamName','year','state','ERA','IP','G']]
-            top_era = top_era.reset_index(drop=True)
-            top_era.index = top_era.index + 1
-            st.write("**Top 50 Lowest ERA Pitchers (min 50 IP)**")
-            st.dataframe(top_era, use_container_width=True, hide_index=False)
+# Hitters
+if 'OPS' in filtered.columns and 'PA' in filtered.columns:
+    hitter_ops = filtered[filtered['role'] == 'Hitter'].copy()
+    make_leaderboard(
+        "Top 50 Highest OPS Hitters (min 100 PA)",
+        hitter_ops,
+        'OPS',
+        min_qual_col='PA',
+        min_qual_value=100
+    )
 
-with pitcher_col2:
-    if 'SO' in filtered.columns and 'IP' in filtered.columns:
-        so_qual = filtered[(filtered['role'] == 'Pitcher') & (filtered['IP'] >= 50)]
-        if not so_qual.empty:
-            top_so = so_qual.nlargest(50, 'SO')[['firstname','lastname','teamName','year','state','SO','IP','G']]
-            top_so = top_so.reset_index(drop=True)
-            top_so.index = top_so.index + 1
-            st.write("**Top 50 Highest Strikeout Pitchers (min 50 IP)**")
-            st.dataframe(top_so, use_container_width=True, hide_index=False)
+if 'T90/PA' in filtered.columns and 'PA' in filtered.columns:
+    hitter_t90 = filtered[filtered['role'] == 'Hitter'].copy()
+    make_leaderboard(
+        "Top 50 T90/PA (min 100 PA)",
+        hitter_t90,
+        'T90/PA',
+        min_qual_col='PA',
+        min_qual_value=100
+    )
 
+# Pitchers
+if 'ERA' in filtered.columns and 'IP' in filtered.columns:
+    pitcher_era = filtered[filtered['role'] == 'Pitcher'].copy()
+    make_leaderboard(
+        "Top 50 Lowest ERA Pitchers (min 50 IP)",
+        pitcher_era,
+        'ERA',
+        min_qual_col='IP',
+        min_qual_value=50,
+        ascending=True
+    )
+
+if 'SO' in filtered.columns and 'IP' in filtered.columns:
+    pitcher_so = filtered[filtered['role'] == 'Pitcher'].copy()
+    make_leaderboard(
+        "Top 50 Highest Strikeout Pitchers (min 50 IP)",
+        pitcher_so,
+        'SO',
+        min_qual_col='IP',
+        min_qual_value=50
+    )
 # State Conference Breakdown Table
 st.subheader("State Recruiting Breakdown by Conference Tier")
 
