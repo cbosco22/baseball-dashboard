@@ -267,7 +267,7 @@ if not filtered.empty:
     with col2:
         st.plotly_chart(px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count'), use_container_width=True)
 
-# State Recruiting Breakdown — Table + Pie Chart
+# State Recruiting Breakdown — Table (top 10, centered, scrollable) + Pie Chart
 st.subheader("State Recruiting Breakdown by Conference Tier")
 
 if filtered.empty:
@@ -276,38 +276,40 @@ else:
     col_left, col_right = st.columns(2)
 
     with col_left:
-        # Table — Power instead of Power Conference
+        # Build the table
         breakdown = filtered.groupby(['state', 'conference_type']).size().unstack(fill_value=0)
-        
-        # Ensure columns exist
         for col in ['Power Conference', 'Mid Major', 'Low Major']:
             if col not in breakdown.columns:
                 breakdown[col] = 0
         
-        # Rename Power Conference → Power
         breakdown = breakdown.rename(columns={'Power Conference': 'Power'})
         breakdown = breakdown[['Power', 'Mid Major', 'Low Major']]
-        
-        # Totals and %
         breakdown['Total'] = breakdown.sum(axis=1)
         breakdown['% Power'] = (breakdown['Power'] / breakdown['Total'] * 100).round(1)
-        
-        # Sort by % Power descending
         breakdown = breakdown.sort_values('% Power', ascending=False)
+        
+        # Only top 10 states
+        breakdown = breakdown.head(10)
         
         # Format % column
         display_table = breakdown.copy()
         display_table['% Power'] = display_table['% Power'].astype(str) + '%'
         
+        # Center all text
         st.dataframe(
-            display_table,
+            display_table.style.set_properties(**{
+                'text-align': 'center',
+                'font-size': '14px'
+            }).set_table_styles([
+                {'selector': 'th', 'props': [('text-align', 'center')]}
+            ]),
             use_container_width=True,
             hide_index=False,
-            height=600  # Even row spacing, scrollable
+            height=380  # Shows exactly ~10 rows with nice spacing + scroll
         )
 
     with col_right:
-        # Pie chart — overall conference split
+        # Pie chart — unchanged
         conf_counts = filtered['conference_type'].value_counts()
         conf_counts = conf_counts.reindex(['Power Conference', 'Mid Major', 'Low Major'], fill_value=0)
         conf_counts = conf_counts.rename({'Power Conference': 'Power'})
@@ -316,21 +318,13 @@ else:
             names=conf_counts.index,
             values=conf_counts.values,
             title="Overall Conference Split",
-            color_discrete_map={
-                'Power': '#00D4AA',
-                'Mid Major': '#6C757D',
-                'Low Major': '#DC3545'
-            },
+            color_discrete_map={'Power': '#00D4AA', 'Mid Major': '#6C757D', 'Low Major': '#DC3545'},
             height=500
         )
         fig.update_traces(textposition='inside', textinfo='percent+label')
-        fig.update_layout(
-            showlegend=False,
-            plot_bgcolor='#0E1117',
-            paper_bgcolor='#0E1117',
-            font_color='white'
-        )
+        fig.update_layout(showlegend=False, plot_bgcolor='#0E1117', paper_bgcolor='#0E1117', font_color='white')
         st.plotly_chart(fig, use_container_width=True)
+        
 # Top Performers — Full width, top 5 visible + scroll
 st.subheader("Top Performers (within current filters)")
 
