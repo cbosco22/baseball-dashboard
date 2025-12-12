@@ -266,43 +266,71 @@ if not filtered.empty:
         st.plotly_chart(px.pie(team_counts.head(20), values='count', names='teamName', title='Top 20 Teams by Player Count (%)'), use_container_width=True)
     with col2:
         st.plotly_chart(px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count'), use_container_width=True)
-# State Conference Breakdown Table
+
+# State Recruiting Breakdown — Table + Pie Chart
 st.subheader("State Recruiting Breakdown by Conference Tier")
 
 if filtered.empty:
     st.write("No data matches current filters.")
 else:
-    # Count players per state and conference type
-    breakdown = filtered.groupby(['state', 'conference_type']).size().unstack(fill_value=0)
-    
-    # Ensure all three columns exist
-    for col in ['Power Conference', 'Mid Major', 'Low Major']:
-        if col not in breakdown.columns:
-            breakdown[col] = 0
-    
-    # Reorder columns
-    breakdown = breakdown[['Power Conference', 'Mid Major', 'Low Major']]
-    
-    # Total players per state
-    breakdown['Total'] = breakdown.sum(axis=1)
-    
-    # % of players going Power Conference
-    breakdown['% Power Conference'] = (breakdown['Power Conference'] / breakdown['Total'] * 100).round(1)
-    
-    # Sort by % Power descending
-    breakdown = breakdown.sort_values('% Power Conference', ascending=False)
-    
-    # Format % column
-    breakdown_display = breakdown.copy()
-    breakdown_display['% Power Conference'] = breakdown_display['% Power Conference'].astype(str) + '%'
-    
-    st.dataframe(
-        breakdown_display,
-        use_container_width=True,
-        hide_index=False
-    )
+    col_left, col_right = st.columns(2)
 
+    with col_left:
+        # Table — Power instead of Power Conference
+        breakdown = filtered.groupby(['state', 'conference_type']).size().unstack(fill_value=0)
+        
+        # Ensure columns exist
+        for col in ['Power Conference', 'Mid Major', 'Low Major']:
+            if col not in breakdown.columns:
+                breakdown[col] = 0
+        
+        # Rename Power Conference → Power
+        breakdown = breakdown.rename(columns={'Power Conference': 'Power'})
+        breakdown = breakdown[['Power', 'Mid Major', 'Low Major']]
+        
+        # Totals and %
+        breakdown['Total'] = breakdown.sum(axis=1)
+        breakdown['% Power'] = (breakdown['Power'] / breakdown['Total'] * 100).round(1)
+        
+        # Sort by % Power descending
+        breakdown = breakdown.sort_values('% Power', ascending=False)
+        
+        # Format % column
+        display_table = breakdown.copy()
+        display_table['% Power'] = display_table['% Power'].astype(str) + '%'
+        
+        st.dataframe(
+            display_table,
+            use_container_width=True,
+            hide_index=False,
+            height=600  # Even row spacing, scrollable
+        )
 
+    with col_right:
+        # Pie chart — overall conference split
+        conf_counts = filtered['conference_type'].value_counts()
+        conf_counts = conf_counts.reindex(['Power Conference', 'Mid Major', 'Low Major'], fill_value=0)
+        conf_counts = conf_counts.rename({'Power Conference': 'Power'})
+
+        fig = px.pie(
+            names=conf_counts.index,
+            values=conf_counts.values,
+            title="Overall Conference Split",
+            color_discrete_map={
+                'Power': '#00D4AA',
+                'Mid Major': '#6C757D',
+                'Low Major': '#DC3545'
+            },
+            height=500
+        )
+        fig.update_traces(textposition='inside', textinfo='percent+label')
+        fig.update_layout(
+            showlegend=False,
+            plot_bgcolor='#0E1117',
+            paper_bgcolor='#0E1117',
+            font_color='white'
+        )
+        st.plotly_chart(fig, use_container_width=True)
 # Top Performers — Full width, top 5 visible + scroll
 st.subheader("Top Performers (within current filters)")
 
