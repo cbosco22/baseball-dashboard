@@ -46,9 +46,9 @@ def load_data():
         return 'Other'
     df['region'] = df['state'].apply(get_region)
 
-    # T90s and T90/PA - ONLY for hitters (pitchers get 0)
-    df['T90s'] = 0.0
-    df['T90/PA'] = 0.0
+    # T90s and T90/PA - ONLY for hitters (pitchers get NaN → grayed out in table)
+    df['T90s'] = np.nan
+    df['T90/PA'] = np.nan
 
     hitter_mask = df['role'] == 'Hitter'
     if hitter_mask.any():
@@ -58,7 +58,6 @@ def load_data():
         df.loc[hitter_mask, 'T90s'] = df.loc[hitter_mask, 'TotalBases'] + df.loc[hitter_mask, 'SB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0)
         df.loc[hitter_mask, 'PA'] = df.loc[hitter_mask, 'AB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0) + df.loc[hitter_mask, 'SF'].fillna(0) + df.loc[hitter_mask, 'SH'].fillna(0)
         df.loc[hitter_mask, 'T90/PA'] = df.loc[hitter_mask, 'T90s'] / df.loc[hitter_mask, 'PA'].replace(0, np.nan)
-        df.loc[hitter_mask, 'T90/PA'] = df.loc[hitter_mask, 'T90/PA'].fillna(0)
 
     # Clean Bats and Throws
     df['Bats'] = df['Bats'].str.upper().replace('B', 'S')
@@ -74,7 +73,7 @@ def load_data():
 
 data = load_data()
 
-# Sidebar Filters
+# Sidebar Filters (same as your current version)
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
 team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
