@@ -73,14 +73,24 @@ def load_data():
 
 data = load_data()
 
-# Sidebar Filters (same as your current version)
+# Sidebar Filters
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
 team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
-year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (int(data['year'].min()), int(data['year'].max())), key="year")
+# Default to 2015–2025 for fast initial load
+default_start = max(int(data['year'].min()), 2015)
+default_end = int(data['year'].max())
+year_filter = st.sidebar.slider(
+    "Year Range",
+    int(data['year'].min()),
+    int(data['year'].max()),
+    (default_start, default_end),
+    key="year"
+)
 state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'].unique()), key="state")
 region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()), key="region")
-min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0, key="min_games")
+# Default min games to 5 for reasonable initial view
+min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 5, key="min_games")
 
 # Position filter
 position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'].dropna().unique()), key="posit")
@@ -162,7 +172,7 @@ if stat2 != 'None' and stat2 in filtered.columns:
 
 # Column selector in expander
 with st.expander("Columns to show (click to expand)", expanded=False):
-    default_cols = ['lastname', 'firstname', 'teamName', 'year', 'Age', 'state', 'LeagueAbbr', 'experience', 'draft_Round', 'G', 'T90s', 'OPS', 'HR', 'RBI', 'SB', 'ERA', 'W', 'SV', 'IP', 'WHIP']
+    default_cols = ['lastname', 'firstname', 'teamName', 'year', 'Age', 'state', 'LeagueAbbr', 'experience', 'G', 'T90s', 'OPS', 'draft_Round', 'ERA', 'W', 'SV', 'IP', 'WHIP']
     available_default = [c for c in default_cols if c in filtered.columns]
     cols = st.multiselect("", options=filtered.columns.tolist(), default=available_default, key="cols")
 
