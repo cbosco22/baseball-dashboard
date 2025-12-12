@@ -56,7 +56,7 @@ def load_data():
         df.loc[hitter_mask, 'Singles'] = df.loc[hitter_mask, 'Singles'].fillna(0)
         df.loc[hitter_mask, 'TotalBases'] = df.loc[hitter_mask, 'Singles'] + 2*df.loc[hitter_mask, 'Dbl'].fillna(0) + 3*df.loc[hitter_mask, 'Tpl'].fillna(0) + 4*df.loc[hitter_mask, 'HR'].fillna(0)
         df.loc[hitter_mask, 'T90s'] = df.loc[hitter_mask, 'TotalBases'] + df.loc[hitter_mask, 'SB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0)
-        df.loc[hitter_mask, 'PA'] = df.loc[hitter_mask, 'AB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0) + df.loc[hitter_mask, 'SF'].fillna(0) + df.loc[hitter_mask, 'SH'].fillna(0)
+        df.loc[hitter_mask, 'PA'] = df rendez.loc[hitter_mask, 'AB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0) + df.loc[hitter_mask, 'SF'].fillna(0) + df.loc[hitter_mask, 'SH'].fillna(0)
         df.loc[hitter_mask, 'T90/PA'] = df.loc[hitter_mask, 'T90s'] / df.loc[hitter_mask, 'PA'].replace(0, np.nan)
 
     # Clean Bats and Throws
@@ -93,6 +93,20 @@ def load_data():
     df.loc[df['leagueName'].isin(power_conferences), 'conference_type'] = 'Power Conference'
     df.loc[df['leagueName'].isin(low_major_conferences), 'conference_type'] = 'Low Major'
 
+    # NEW: Academic School flag
+    academic_schools = [
+        'Air Force', 'Army', 'Boston College', 'Brown', 'Bryant', 'Bryant University', 'Bucknell',
+        'California', 'Columbia', 'Cornell', 'Dartmouth', 'Davidson', 'Davidson College', 'Duke',
+        'Fordham', 'Georgetown', 'Georgia Tech', 'Harvard', 'Holy Cross', 'Lafayette',
+        'Lafayette College', 'Lehigh', 'Maryland', 'Massachusetts', 'Michigan', 'Navy',
+        'New Jersey Tech', 'North Carolina', 'Northeastern', 'Northwestern', 'Notre Dame',
+        'Penn', 'Pennsylvania', 'Princeton', 'Purdue', 'Rice', 'Richmond', 'Stanford',
+        'Tulane', 'UC Davis', 'UC Irvine', 'UC San Diego', 'UC Santa Barbara', 'UCLA',
+        'USC', 'Vanderbilt', 'Villanova', 'Virginia', 'Wake Forest', 'Washington',
+        'William and Mary', 'Wofford', 'Yale'
+    ]
+    df['is_academic_school'] = df['teamName'].isin(academic_schools)
+
     return df
 
 data = load_data()
@@ -106,8 +120,11 @@ state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'
 region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()), key="region")
 min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0, key="min_games")
 
-# NEW: Conference Type filter (Power, Mid Major, Low Major)
+# Conference Type filter
 conference_type_filter = st.sidebar.multiselect("Conference Type", options=['Power Conference', 'Mid Major', 'Low Major'], key="conference_type")
+
+# NEW: Academic School filter
+academic_school_filter = st.sidebar.radio("Academic School", ["All", "Academic Schools Only"], key="academic_school")
 
 # Position filter
 position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'].dropna().unique()), key="posit")
@@ -171,9 +188,13 @@ if throws_filter:
 if name_search:
     filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) | filtered['lastname'].str.contains(name_search, case=False, na=False)]
 
-# NEW: Conference Type filter
+# Conference Type filter
 if conference_type_filter:
     filtered = filtered[filtered['conference_type'].isin(conference_type_filter)]
+
+# NEW: Academic School filter
+if academic_school_filter == "Academic Schools Only":
+    filtered = filtered[filtered['is_academic_school']]
 
 # Draft round filter
 filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
@@ -283,7 +304,7 @@ with hitter_col1:
     if 'OPS' in filtered.columns and 'PA' in filtered.columns:
         ops_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
         if not ops_qual.empty:
-            top_ops = ops_qual.nlargest(50, 'OPS')[['firstname', 'lastname', 'teamName', 'year', 'OPS', 'PA', 'G']]
+            top_ops = ops_qual.nlargest(50, 'OPS')[['firstname', 'lastname', 'teamName', 'year', 'state', 'OPS', 'PA', 'G']]
             top_ops = top_ops.reset_index(drop=True)
             top_ops.index = top_ops.index + 1
             st.write("**Top 50 Highest OPS Hitters (min 100 PA)**")
@@ -295,7 +316,7 @@ with hitter_col2:
     if 'T90/PA' in filtered.columns and 'PA' in filtered.columns:
         t90_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
         if not t90_qual.empty:
-            top_t90 = t90_qual.nlargest(50, 'T90/PA')[['firstname', 'lastname', 'teamName', 'year', 'T90/PA', 'T90s', 'PA']]
+            top_t90 = t90_qual.nlargest(50, 'T90/PA')[['firstname', 'lastname', 'teamName', 'year', 'state', 'T90/PA', 'T90s', 'PA']]
             top_t90 = top_t90.reset_index(drop=True)
             top_t90.index = top_t90.index + 1
             st.write("**Top 50 T90/PA (min 100 PA)**")
@@ -310,7 +331,7 @@ with pitcher_col1:
     if 'ERA' in filtered.columns and 'IP' in filtered.columns:
         era_qual = filtered[(filtered['role'] == 'Pitcher') & (filtered['IP'] >= 50)]
         if not era_qual.empty:
-            top_era = era_qual.nsmallest(50, 'ERA')[['firstname', 'lastname', 'teamName', 'year', 'ERA', 'IP', 'G']]
+            top_era = era_qual.nsmallest(50, 'ERA')[['firstname', 'lastname', 'teamName', 'year', 'state', 'ERA', 'IP', 'G']]
             top_era = top_era.reset_index(drop=True)
             top_era.index = top_era.index + 1
             st.write("**Top 50 Lowest ERA Pitchers (min 50 IP)**")
@@ -322,7 +343,7 @@ with pitcher_col2:
     if 'SO' in filtered.columns and 'IP' in filtered.columns:
         so_qual = filtered[(filtered['role'] == 'Pitcher') & (filtered['IP'] >= 50)]
         if not so_qual.empty:
-            top_so = so_qual.nlargest(50, 'SO')[['firstname', 'lastname', 'teamName', 'year', 'SO', 'IP', 'G']]
+            top_so = so_qual.nlargest(50, 'SO')[['firstname', 'lastname', 'teamName', 'year', 'state', 'SO', 'IP', 'G']]
             top_so = top_so.reset_index(drop=True)
             top_so.index = top_so.index + 1
             st.write("**Top 50 Highest Strikeout Pitchers (min 50 IP)**")
