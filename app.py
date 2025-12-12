@@ -262,7 +262,7 @@ with hitter_col1:
     if 'OPS' in filtered.columns and 'PA' in filtered.columns:
         ops_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
         if not ops_qual.empty:
-            top_ops = ops_qual.nlargest(50, 'OPS')[['firstname', 'lastname', 'teamName', 'year', 'OPS', 'PA', 'G']]
+            top_ops = ops_qual.nlargest(50, 'OPS')[['firstname', 'lastname', 'teamName', 'year', 'state', 'OPS', 'PA', 'G']]
             top_ops = top_ops.reset_index(drop=True)
             top_ops.index = top_ops.index + 1
             st.write("**Top 50 Highest OPS Hitters (min 100 PA)**")
@@ -274,7 +274,7 @@ with hitter_col2:
     if 'T90/PA' in filtered.columns and 'PA' in filtered.columns:
         t90_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
         if not t90_qual.empty:
-            top_t90 = t90_qual.nlargest(50, 'T90/PA')[['firstname', 'lastname', 'teamName', 'year', 'T90/PA', 'T90s', 'PA']]
+            top_t90 = t90_qual.nlargest(50, 'T90/PA')[['firstname', 'lastname', 'teamName', 'year', 'state', 'T90/PA', 'T90s', 'PA']]
             top_t90 = top_t90.reset_index(drop=True)
             top_t90.index = top_t90.index + 1
             st.write("**Top 50 T90/PA (min 100 PA)**")
@@ -289,7 +289,7 @@ with pitcher_col1:
     if 'ERA' in filtered.columns and 'IP' in filtered.columns:
         era_qual = filtered[(filtered['role'] == 'Pitcher') & (filtered['IP'] >= 50)]
         if not era_qual.empty:
-            top_era = era_qual.nsmallest(50, 'ERA')[['firstname', 'lastname', 'teamName', 'year', 'ERA', 'IP', 'G']]
+            top_era = era_qual.nsmallest(50, 'ERA')[['firstname', 'lastname', 'teamName', 'year', 'state', 'ERA', 'IP', 'G']]
             top_era = top_era.reset_index(drop=True)
             top_era.index = top_era.index + 1
             st.write("**Top 50 Lowest ERA Pitchers (min 50 IP)**")
@@ -301,7 +301,7 @@ with pitcher_col2:
     if 'SO' in filtered.columns and 'IP' in filtered.columns:
         so_qual = filtered[(filtered['role'] == 'Pitcher') & (filtered['IP'] >= 50)]
         if not so_qual.empty:
-            top_so = so_qual.nlargest(50, 'SO')[['firstname', 'lastname', 'teamName', 'year', 'SO', 'IP', 'G']]
+            top_so = so_qual.nlargest(50, 'SO')[['firstname', 'lastname', 'teamName', 'year', 'state', 'SO', 'IP', 'G']]
             top_so = top_so.reset_index(drop=True)
             top_so.index = top_so.index + 1
             st.write("**Top 50 Highest Strikeout Pitchers (min 50 IP)**")
