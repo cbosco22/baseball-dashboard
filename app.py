@@ -87,8 +87,7 @@ role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pit
 # Good Players Only toggle + description
 good_players_only = st.sidebar.checkbox("Good Players Only", key="good_players")
 if good_players_only:
-    st.sidebar.caption("Pitchers: >30 IP, WHIP <1.35
-    Hitters: T90/PA >.550")
+    st.sidebar.caption("Pitchers: >30 IP, WHIP <1.35 // Hitters: T90/PA >.550")
     
 league_filter = st.sidebar.multiselect("Conference", sorted(data['LeagueAbbr'].unique()), key="league")
 conference_type_filter = st.sidebar.multiselect("Conference Type", options=['Power Conference', 'Mid Major', 'Low Major'], key="conference_type")
