@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import numpy as np
 
-st.title("College Baseball Roster Analysis - 2002-2025")
+st.title("College Baseball Player Dashboard")
 
 # Reset button in sidebar
 st.sidebar.header("Filters")
@@ -55,10 +55,6 @@ def load_data():
     df['T90/PA'] = df['T90s'] / df['PA'].replace(0, np.nan)
     df['T90/PA'] = df['T90/PA'].fillna(0)
 
-    # Clean height and weight
-    df['ht'] = pd.to_numeric(df['ht'], errors='coerce')
-    df['WT'] = pd.to_numeric(df['WT'], errors='coerce')
-
     # Clean Bats and Throws
     df['Bats'] = df['Bats'].str.upper().replace('B', 'S')
     df['Throws'] = df['Throws'].str.upper()
@@ -66,7 +62,7 @@ def load_data():
     # Clean and standardize position
     df['posit'] = df['posit'].str.upper().str.strip()
 
-    # Fix Miami / Miami-Ohio: Only change if teamName is "Miami" AND LeagueAbbr is "MAC"
+    # Fix Miami / Miami-Ohio
     df.loc[(df['teamName'] == 'Miami') & (df['LeagueAbbr'] == 'MAC'), 'teamName'] = 'Miami-Ohio'
 
     return df
@@ -143,12 +139,6 @@ if throws_filter:
     filtered = filtered[filtered['Throws'].isin(throws_filter)]
 if name_search:
     filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) | filtered['lastname'].str.contains(name_search, case=False, na=False)]
-
-# Height and Weight
-if filtered['ht'].notna().any():
-    filtered = filtered[filtered['ht'].between(ht_range[0], ht_range[1])]
-if filtered['WT'].notna().any():
-    filtered = filtered[filtered['WT'].between(wt_range[0], wt_range[1])]
 
 # Draft round filter
 filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
