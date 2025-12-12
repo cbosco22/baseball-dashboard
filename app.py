@@ -19,10 +19,12 @@ def load_data():
     hitters['role'] = 'Hitter'
     df = pd.concat([pitchers, hitters], ignore_index=True, sort=False)
 
+    # State
     df['state'] = df['hsplace'].str.split(',').str[-1].str.strip().str.upper()
     us_states = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY']
     df = df[df['state'].isin(us_states)]
 
+    # Draft cleanup
     df['draft_year'] = pd.to_numeric(df['draft_year'], errors='coerce')
     df['draft_Round'] = pd.to_numeric(df['draft_Round'], errors='coerce').fillna(0)
     df['is_drafted'] = df['draft_year'].notna()
@@ -50,23 +52,27 @@ def load_data():
     hitter_mask = df['role'] == 'Hitter'
     if hitter_mask.any():
         df.loc[hitter_mask, 'Singles'] = (df.loc[hitter_mask, 'H'] - df.loc[hitter_mask, 'Dbl'] - df.loc[hitter_mask, 'Tpl'] - df.loc[hitter_mask, 'HR']).fillna(0)
-        df.loc[hitter_mask, 'TotalBases'] = df.loc[hitter_mask, 'Singles'] + 2*df.loc[hitter_mask, 'Dbl'].fillna(0) + 3*df.loc[hitter_mask, 'Tpl'].fillna(0) + 4*df.loc[hitter_mask, 'HR'].fillna(0)
-        df.loc[hitter_mask, 'T90s'] = df.loc[hitter_mask, 'TotalBases'] + df.loc[hitter_mask, 'SB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0)
-        df.loc[hitter_mask, 'PA'] = df.loc[hitter_mask, 'AB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0) + df.loc[hitter_mask, 'SF'].fillna(0) + df.loc[hitter_mask, 'SH'].fillna(0)
+        df.loc[hitter_mask, 'TotalBases'] = (df.loc[hitter_mask, 'Singles'] + 2*df.loc[hitter_mask, 'Dbl'].fillna(0) + 3*df.loc[hitter_mask, 'Tpl'].fillna(0) + 4*df.loc[hitter_mask, 'HR'].fillna(0))
+        df.loc[hitter_mask, 'T90s'] = (df.loc[hitter_mask, 'TotalBases'] + df.loc[hitter_mask, 'SB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0))
+        df.loc[hitter_mask, 'PA'] = (df.loc[hitter_mask, 'AB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0) + df.loc[hitter_mask, 'SF'].fillna(0) + df.loc[hitter_mask, 'SH'].fillna(0))
         df.loc[hitter_mask, 'T90/PA'] = df.loc[hitter_mask, 'T90s'] / df.loc[hitter_mask, 'PA'].replace(0, np.nan)
 
+    # Clean Bats/Throws/Position
     df['Bats'] = df['Bats'].str.upper().replace('B', 'S')
     df['Throws'] = df['Throws'].str.upper()
     df['posit'] = df['posit'].str.upper().str.strip()
 
+    # Miami → Miami-Ohio fix
     df.loc[(df['teamName'] == 'Miami') & (df['LeagueAbbr'] == 'MAC'), 'teamName'] = 'Miami-Ohio'
 
+    # Conference type
     power = ['Atlantic Coast Conference','Big 12 Conference','Big Ten Conference','Pacific-10 Conference','Pacific-12 Conference','Southeastern Conference']
     low_major = ['Big South Conference','Patriot League','Ivy League','America East Conference','Metro Atlantic Athletic Conference','Northeast Conference','Southwest Athletic Conference','Horizon League']
     df['conference_type'] = 'Mid Major'
     df.loc[df['leagueName'].isin(power), 'conference_type'] = 'Power Conference'
     df.loc[df['leagueName'].isin(low_major), 'conference_type'] = 'Low Major'
 
+    # Academic School flag
     academic_schools = ['Air Force','Army','Boston College','Brown','Bryant','Bryant University','Bucknell','California','Columbia','Cornell','Dartmouth','Davidson','Davidson College','Duke','Fordham','Georgetown','Georgia Tech','Harvard','Holy Cross','Lafayette','Lafayette College','Lehigh','Maryland','Massachusetts','Michigan','Navy','New Jersey Tech','North Carolina','Northeastern','Northwestern','Notre Dame','Penn','Pennsylvania','Princeton','Purdue','Rice','Richmond','Stanford','Tulane','UC Davis','UC Irvine','UC San Diego','UC Santa Barbara','UCLA','USC','Vanderbilt','Villanova','Virginia','Wake Forest','Washington','William and Mary','Wofford','Yale']
     df['is_academic_school'] = df['teamName'].isin(academic_schools)
 
@@ -90,6 +96,9 @@ throws_filter = st.sidebar.multiselect("Throws", options=['L', 'R'], key="throws
 conference_type_filter = st.sidebar.multiselect("Conference Type", options=['Power Conference', 'Mid Major', 'Low Major'], key="conference_type")
 academic_school_filter = st.sidebar.radio("Academic School", ["All", "Academic Schools Only"], key="academic_school")
 
+# NEW: Good Players Only toggle
+good_players_only = st.sidebar.checkbox("Good Players Only", key="good_players")
+
 name_search = st.sidebar.text_input("Search Player Name", key="name_search")
 draft_round_range = st.sidebar.slider("Draft Round Range (0 = undrafted)", 0, 70, (0,70), key="draft_round")
 
@@ -109,7 +118,7 @@ if stat2 != 'None':
     step2 = 0.1 if stat2 in ['ERA','OPS','Bavg','Slg','obp','WHIP','T90/PA'] else 1.0
     value2 = st.sidebar.number_input(f"{stat2} value", value=0.0, step=step2, key="val2")
 
-# Filtering
+# Base filtering
 filtered = data[
     data['role'].isin(role_filter) &
     data['year'].between(*year_filter) &
@@ -134,6 +143,15 @@ if academic_school_filter == "Academic Schools Only":
 
 filtered = filtered[filtered['draft_Round'].between(*draft_round_range)]
 
+# Good Players Only filter
+if good_players_only:
+    # Hitters: >30 G and T90/PA > 0.550
+    hitters_good = (filtered['role'] == 'Hitter') & (filtered['G'] > 30) & (filtered['T90/PA'] > 0.550)
+    # Pitchers: >30 IP and WHIP < 1.35
+    pitchers_good = (filtered['role'] == 'Pitcher') & (filtered['IP'] > 30) & (filtered['WHIP'] < 1.35)
+    filtered = filtered[hitters_good | pitchers_good]
+
+# Custom stat filters
 if stat1 != 'None' and stat1 in filtered.columns:
     filtered = filtered[filtered[stat1] >= value1] if direction1 == "Greater than or equal to" else filtered[filtered[stat1] <= value1]
 if stat2 != 'None' and stat2 in filtered.columns:
@@ -161,67 +179,39 @@ if not filtered.empty:
     fig_map.update_layout(paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', font_color='white', geo_bgcolor='#0E1117')
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
-# Recruitment Patterns — Top states descending (CA at top), stacked by top schools + % next to state name
+# Recruitment patterns
 st.subheader("Recruitment Patterns (Top Recruiting States)")
-
 if filtered.empty:
     st.write("No data matches current filters.")
 else:
-    # Count per state + team
     grouped = filtered.groupby(['state', 'teamName']).size().reset_index(name='count')
     
-    # Top 4 teams + "Other" per state
     def top_n_plus_other(g):
         if len(g) <= 5:
             return g
         top4 = g.nlargest(4, 'count')
-        other = pd.DataFrame([{
-            'state': g.name,
-            'teamName': 'Other',
-            'count': g['count'].sum() - top4['count'].sum()
-        }])
+        other = pd.DataFrame([{'state': g.name, 'teamName': 'Other', 'count': g['count'].sum() - top4['count'].sum()}])
         return pd.concat([top4, other], ignore_index=True)
     
     grouped = grouped.groupby('state').apply(top_n_plus_other).reset_index(drop=True)
     
-    # Total per state + % of all players
     state_totals = grouped.groupby('state')['count'].sum().reset_index()
     state_totals['pct'] = (state_totals['count'] / len(filtered) * 100).round(1)
     
-    # Sort states DESCENDING (CA at top)
     state_order = state_totals.sort_values('count', ascending=False).head(15)['state'].tolist()
     grouped = grouped[grouped['state'].isin(state_order)]
     grouped['state'] = pd.Categorical(grouped['state'], categories=state_order, ordered=True)
-    grouped = grouped.sort_values(['state', 'count'], ascending=[True, False])
+    grouped = grouped.sort_values('state')
     
-    # Add % to state label
     state_labels = {s: f"{s} ({state_totals.loc[state_totals['state']==s, 'pct'].iloc[0]}%)" for s in state_order}
     grouped['state_label'] = grouped['state'].map(state_labels)
     
-    # Plot
-    fig = px.bar(
-        grouped,
-        x='count',
-        y='state_label',
-        color='teamName',
-        orientation='h',
-        title="Top Recruiting States — % of All Players",
-        height=700,
-        hover_data={'count': True}
-    )
-    
-    fig.update_layout(
-        barmode='stack',
-        yaxis_title="",
-        xaxis_title="Number of Players",
-        legend_title="Team",
-        plot_bgcolor='#0E1117',
-        paper_bgcolor='#0E1117',
-        font_color='white',
-        showlegend=True,
-        legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02)
-    )
-    
+    fig = px.bar(grouped, x='count', y='state_label', color='teamName', orientation='h',
+                 title="Top Recruiting States — % of All Players", height=700)
+    fig.update_layout(barmode='stack', yaxis_title="", xaxis_title="Number of Players",
+                      legend_title="Team", plot_bgcolor='#0E1117', paper_bgcolor='#0E1117',
+                      font_color='white', showlegend=True,
+                      legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02))
     st.plotly_chart(fig, use_container_width=True)
 
 # Players by Region
@@ -258,6 +248,7 @@ with hitter_col1:
             top_ops.index = top_ops.index + 1
             st.write("**Top 50 Highest OPS Hitters (min 100 PA)**")
             st.dataframe(top_ops, use_container_width=True, hide_index=False)
+
 with hitter_col2:
     if 'T90/PA' in filtered.columns and 'PA' in filtered.columns:
         t90_qual = filtered[(filtered['role'] == 'Hitter') & (filtered['PA'] >= 100)]
@@ -278,6 +269,7 @@ with pitcher_col1:
             top_era.index = top_era.index + 1
             st.write("**Top 50 Lowest ERA Pitchers (min 50 IP)**")
             st.dataframe(top_era, use_container_width=True, hide_index=False)
+
 with pitcher_col2:
     if 'SO' in filtered.columns and 'IP' in filtered.columns:
         so_qual = filtered[(filtered['role'] == 'Pitcher') & (filtered['IP'] >= 50)]
