@@ -181,22 +181,48 @@ if not filtered.empty:
     fig_map.update_layout(paper_bgcolor='#0E1117', plot_bgcolor='#0E1117', font_color='white', geo_bgcolor='#0E1117')
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
-# Recruitment patterns — now with % labels
+# Recruitment Patterns — ONE % number at the top of each state stack
 st.subheader("Recruitment Patterns (Top States per Team)")
 if not filtered.empty:
-    top_states = filtered.groupby(['teamName', 'state']).size().reset_index(name='count')
-    top_states = top_states.sort_values('count', ascending=False).head(20)
+    st.write("No data matches filters.")
+else:
+    # Count players per state (regardless of team)
+    state_counts = filtered['state'].value_counts().head(15).reset_index()
+    state_counts.columns = ['state', 'count']
     
+    # Calculate % of total
     total_players = len(filtered)
-    top_states['percentage'] = (top_states['count'] / total_players * 100).round(1)
+    state_counts['percentage'] = (state_counts['count'] / total_players * 100).round(1)
     
-    fig_bar = px.bar(top_states, x='state', y='count', color='teamName',
-                     text=top_states['percentage'].astype(str) + '%',
-                     title='Top Recruiting States')
-    fig_bar.update_traces(textposition='outside')
-    fig_bar.update_layout(xaxis_title="State", yaxis_title="Number of Players", legend_title="Team",
-                          plot_bgcolor='#0E1117', paper_bgcolor='#0E1117', font_color='white')
-    st.plotly_chart(fig_bar, use_container_width=True)
+    # Sort by count descending
+    state_counts = state_counts.sort_values('count', ascending=True)
+    
+    fig = px.bar(
+        state_counts,
+        x='count',
+        y='state',
+        orientation='h',  # horizontal bars
+        text=state_counts['percentage'].astype(str) + '%',
+        title="Top Recruiting States — % of All Players",
+        height=600
+    )
+    
+    fig.update_traces(
+        textposition='outside',
+        marker_color='#E91E63'  # nice pink/red that pops on dark
+    )
+    
+    fig.update_layout(
+        xaxis_title="Number of Players",
+        yaxis_title="State",
+        plot_bgcolor='#0E1117',
+        paper_bgcolor='#0E1117',
+        font_color='white',
+        showlegend=False,
+        bargap=0.3
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
 
 # Players by Region
 st.subheader("Players by Region")
