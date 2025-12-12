@@ -162,7 +162,7 @@ if stat2 != 'None' and stat2 in filtered.columns:
 
 # Column selector in expander
 with st.expander("Columns to show (click to expand)", expanded=False):
-    default_cols = ['lastname', 'firstname', 'teamName', 'year', 'Age', 'state', 'LeagueAbbr', 'experience', 'G', 'T90s', 'OPS', 'draft_Round', 'ERA', 'W', 'SV', 'IP', 'WHIP']
+    default_cols = ['lastname', 'firstname', 'teamName', 'year', 'Age', 'state', 'LeagueAbbr', 'experience', 'draft_Round', 'G', 'T90s', 'OPS', 'HR', 'RBI', 'SB', 'ERA', 'W', 'SV', 'IP', 'WHIP']
     available_default = [c for c in default_cols if c in filtered.columns]
     cols = st.multiselect("", options=filtered.columns.tolist(), default=available_default, key="cols")
 
