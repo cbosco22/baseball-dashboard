@@ -85,7 +85,7 @@ year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data[
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 league_filter = st.sidebar.multiselect("Conference", sorted(data['LeagueAbbr'].unique()), key="league")
 conference_type_filter = st.sidebar.multiselect("Conference Type", options=['Power Conference', 'Mid Major', 'Low Major'], key="conference_type")
-academic_school_filter = st.sidebar.radio("Academic School", ["All", "Academic Schools Only"], key="academic_school")
+academic_school_filter = st.sidebar.radio("Academic School", ["All", "Top 60 Academic"], key="academic_school")
 team_filter = st.sidebar.multiselect("Team", sorted(data['teamName'].unique()), key="team")
 state_filter = st.sidebar.multiselect("State", sorted(data['state'].unique()), key="state")
 region_filter = st.sidebar.multiselect("Region", sorted(data['region'].unique()), key="region")
