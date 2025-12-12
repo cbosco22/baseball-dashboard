@@ -276,25 +276,25 @@ else:
     breakdown = filtered.groupby(['state', 'conference_type']).size().unstack(fill_value=0)
     
     # Ensure all three columns exist
-    for col in ['Power', 'Mid Major', 'Low Major']:
+    for col in ['Power Conference', 'Mid Major', 'Low Major']:
         if col not in breakdown.columns:
             breakdown[col] = 0
     
     # Reorder columns
-    breakdown = breakdown[['Power', 'Mid Major', 'Low Major']]
+    breakdown = breakdown[['Power Conference', 'Mid Major', 'Low Major']]
     
     # Total players per state
     breakdown['Total'] = breakdown.sum(axis=1)
     
     # % of players going Power Conference
-    breakdown['% Power'] = (breakdown['Power Conference'] / breakdown['Total'] * 100).round(1)
+    breakdown['% Power Conference'] = (breakdown['Power Conference'] / breakdown['Total'] * 100).round(1)
     
     # Sort by % Power descending
     breakdown = breakdown.sort_values('% Power Conference', ascending=False)
     
     # Format % column
     breakdown_display = breakdown.copy()
-    breakdown_display['% Power'] = breakdown_display['% Power Conference'].astype(str) + '%'
+    breakdown_display['% Power Conference'] = breakdown_display['% Power Conference'].astype(str) + '%'
     
     st.dataframe(
         breakdown_display,
