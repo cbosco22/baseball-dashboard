@@ -56,7 +56,7 @@ def load_data():
         df.loc[hitter_mask, 'Singles'] = df.loc[hitter_mask, 'Singles'].fillna(0)
         df.loc[hitter_mask, 'TotalBases'] = df.loc[hitter_mask, 'Singles'] + 2*df.loc[hitter_mask, 'Dbl'].fillna(0) + 3*df.loc[hitter_mask, 'Tpl'].fillna(0) + 4*df.loc[hitter_mask, 'HR'].fillna(0)
         df.loc[hitter_mask, 'T90s'] = df.loc[hitter_mask, 'TotalBases'] + df.loc[hitter_mask, 'SB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0)
-        df.loc[hitter_mask, 'PA'] = df rendez.loc[hitter_mask, 'AB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0) + df.loc[hitter_mask, 'SF'].fillna(0) + df.loc[hitter_mask, 'SH'].fillna(0)
+        df.loc[hitter_mask, 'PA'] = df.loc[hitter_mask, 'AB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0) + df.loc[hitter_mask, 'SF'].fillna(0) + df.loc[hitter_mask, 'SH'].fillna(0)
         df.loc[hitter_mask, 'T90/PA'] = df.loc[hitter_mask, 'T90s'] / df.loc[hitter_mask, 'PA'].replace(0, np.nan)
 
     # Clean Bats and Throws
@@ -68,44 +68,6 @@ def load_data():
 
     # Fix Miami / Miami-Ohio
     df.loc[(df['teamName'] == 'Miami') & (df['LeagueAbbr'] == 'MAC'), 'teamName'] = 'Miami-Ohio'
-
-    # Power Conference / Mid Major / Low Major classification
-    power_conferences = [
-        'Atlantic Coast Conference',
-        'Big 12 Conference',
-        'Big Ten Conference',
-        'Pacific-10 Conference',
-        'Pacific-12 Conference',
-        'Southeastern Conference'
-    ]
-    low_major_conferences = [
-        'Big South Conference',
-        'Patriot League',
-        'Ivy League',
-        'America East Conference',
-        'Metro Atlantic Athletic Conference',
-        'Northeast Conference',
-        'Southwest Athletic Conference',
-        'Horizon League'
-    ]
-
-    df['conference_type'] = 'Mid Major'  # default
-    df.loc[df['leagueName'].isin(power_conferences), 'conference_type'] = 'Power Conference'
-    df.loc[df['leagueName'].isin(low_major_conferences), 'conference_type'] = 'Low Major'
-
-    # NEW: Academic School flag
-    academic_schools = [
-        'Air Force', 'Army', 'Boston College', 'Brown', 'Bryant', 'Bryant University', 'Bucknell',
-        'California', 'Columbia', 'Cornell', 'Dartmouth', 'Davidson', 'Davidson College', 'Duke',
-        'Fordham', 'Georgetown', 'Georgia Tech', 'Harvard', 'Holy Cross', 'Lafayette',
-        'Lafayette College', 'Lehigh', 'Maryland', 'Massachusetts', 'Michigan', 'Navy',
-        'New Jersey Tech', 'North Carolina', 'Northeastern', 'Northwestern', 'Notre Dame',
-        'Penn', 'Pennsylvania', 'Princeton', 'Purdue', 'Rice', 'Richmond', 'Stanford',
-        'Tulane', 'UC Davis', 'UC Irvine', 'UC San Diego', 'UC Santa Barbara', 'UCLA',
-        'USC', 'Vanderbilt', 'Villanova', 'Virginia', 'Wake Forest', 'Washington',
-        'William and Mary', 'Wofford', 'Yale'
-    ]
-    df['is_academic_school'] = df['teamName'].isin(academic_schools)
 
     return df
 
@@ -119,12 +81,6 @@ year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data[
 state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'].unique()), key="state")
 region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()), key="region")
 min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0, key="min_games")
-
-# Conference Type filter
-conference_type_filter = st.sidebar.multiselect("Conference Type", options=['Power Conference', 'Mid Major', 'Low Major'], key="conference_type")
-
-# NEW: Academic School filter
-academic_school_filter = st.sidebar.radio("Academic School", ["All", "Academic Schools Only"], key="academic_school")
 
 # Position filter
 position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'].dropna().unique()), key="posit")
@@ -187,14 +143,6 @@ if throws_filter:
     filtered = filtered[filtered['Throws'].isin(throws_filter)]
 if name_search:
     filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) | filtered['lastname'].str.contains(name_search, case=False, na=False)]
-
-# Conference Type filter
-if conference_type_filter:
-    filtered = filtered[filtered['conference_type'].isin(conference_type_filter)]
-
-# NEW: Academic School filter
-if academic_school_filter == "Academic Schools Only":
-    filtered = filtered[filtered['is_academic_school']]
 
 # Draft round filter
 filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
