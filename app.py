@@ -112,12 +112,9 @@ data = load_data()
 # Sidebar Filters
 year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (2015, int(data['year'].max())), key="year")
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
-
-# Good Players Only toggle + description
 good_players_only = st.sidebar.checkbox("Good Players Only", key="good_players")
 if good_players_only:
     st.sidebar.caption("Pitchers: IP > 30, WHIP < 1.35\nHitters: T90/PA > .550")
-
 league_filter = st.sidebar.multiselect("Conference", sorted(data['LeagueAbbr'].unique()), key="league")
 conference_type_filter = st.sidebar.multiselect("Conference Type", options=['Power Conference', 'Mid Major', 'Low Major'], key="conference_type")
 academic_school_filter = st.sidebar.radio("School Academic Level", ["All", "Top 60 Academic"], key="academic_school")
@@ -153,125 +150,107 @@ filtered = data[
     (data['G'] >= min_games)
 ]
 
-if league_filter:
-    filtered = filtered[filtered['LeagueAbbr'].isin(league_filter)]
-if team_filter:
-    filtered = filtered[filtered['teamName'].isin(team_filter)]
-if state_filter:
-    filtered = filtered[filtered['state'].isin(state_filter)]
-if region_filter:
-    filtered = filtered[filtered['region'].isin(region_filter)]
-if position_filter:
-    filtered = filtered[filtered['posit'].isin(position_filter)]
-if bats_filter:
-    filtered = filtered[filtered['Bats'].isin(bats_filter)]
-if throws_filter:
-    filtered = filtered[filtered['Throws'].isin(throws_filter)]
+if league_filter: filtered = filtered[filtered['LeagueAbbr'].isin(league_filter)]
+if team_filter: filtered = filtered[filtered['teamName'].isin(team_filter)]
+if state_filter: filtered = filtered[filtered['state'].isin(state_filter)]
+if region_filter: filtered = filtered[filtered['region'].isin(region_filter)]
+if position_filter: filtered = filtered[filtered['posit'].isin(position_filter)]
+if bats_filter: filtered = filtered[filtered['Bats'].isin(bats_filter)]
+if throws_filter: filtered = filtered[filtered['Throws'].isin(throws_filter)]
 if name_search:
     filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) | filtered['lastname'].str.contains(name_search, case=False, na=False)]
-
 if conference_type_filter:
     filtered = filtered[filtered['conference_type'].isin(conference_type_filter)]
 if academic_school_filter == "Top 60 Academic":
     filtered = filtered[filtered['is_academic_school']]
-
 filtered = filtered[filtered['draft_Round'].between(*draft_round_range)]
 
-# Good Players Only filter
 if good_players_only:
     hitters_good = (filtered['role'] == 'Hitter') & (filtered['G'] > 30) & (filtered['T90/PA'] > 0.550)
     pitchers_good = (filtered['role'] == 'Pitcher') & (filtered['IP'] > 30) & (filtered['WHIP'] < 1.35)
     filtered = filtered[hitters_good | pitchers_good]
 
-# Custom stat filters
 if stat1 != 'None' and stat1 in filtered.columns:
-    if direction1 == "Greater than or equal to":
-        filtered = filtered[filtered[stat1] >= value1]
-    else:
-        filtered = filtered[filtered[stat1] <= value1]
-
+    filtered = filtered[filtered[stat1] >= value1] if direction1 == "Greater than or equal to" else filtered[filtered[stat1] <= value1]
 if stat2 != 'None' and stat2 in filtered.columns:
-    if direction2 == "Greater than or equal to":
-        filtered = filtered[filtered[stat2] >= value2]
-    else:
-        filtered = filtered[filtered[stat2] <= value2]
+    filtered = filtered[filtered[stat2] >= value2] if direction2 == "Greater than or equal to" else filtered[filtered[stat2] <= value2]
 
-# Column selector in expander
+# Column selector
 with st.expander("Columns to show (click to expand)", expanded=False):
-    default_cols = ['lastname', 'firstname', 'teamName', 'year', 'Age', 'state', 'LeagueAbbr', 'experience', 'G', 'T90s', 'OPS', 'draft_Round', 'ERA', 'W', 'SV', 'IP', 'WHIP']
+    default_cols = ['lastname','firstname','teamName','year','Age','state','LeagueAbbr','experience','G','T90s','OPS','draft_Round','ERA','W','SV','IP','WHIP']
     available_default = [c for c in default_cols if c in filtered.columns]
     cols = st.multiselect("", options=filtered.columns.tolist(), default=available_default, key="cols")
 
-# Export button
+# Export
 csv = filtered.to_csv(index=False).encode('utf-8')
-st.download_button(
-    label="Export Filtered Data as CSV",
-    data=csv,
-    file_name='college_baseball_filtered.csv',
-    mime='text/csv'
-)
+st.download_button("Export Filtered Data as CSV", data=csv, file_name='college_baseball_filtered.csv', mime='text/csv')
 
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
 st.dataframe(filtered[cols] if cols else filtered.head(100), use_container_width=True, hide_index=True)
 
-# Hometown Hot Zones (US Map) — old state heatmap
-st.subheader("Hometown Hot Zones (US Map)")
-if not filtered.empty:
-    state_counts = filtered.groupby('state').size().reset_index(name='player_count')
-    fig_map = px.choropleth(
-        state_counts,
-        locations='state',
-        locationmode='USA-states',
-        color='player_count',
-        scope='usa',
-        color_continuous_scale='Reds',
-        title='Hot Zones by State'
-    )
-    fig_map.update_layout(
-        paper_bgcolor='#0E1117',
-        plot_bgcolor='#0E1117',
-        font_color='white',
-        geo_bgcolor='#0E1117'
-    )
-    st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
-else:
-    st.write("No data matches filters.")
+# Dropdown to choose map
+map_choice = st.selectbox("Hometown Map View", ["State Hot Zones", "Pinpoint Cities"], key="map_choice")
 
-# Pinpoint City Map — shorter
-st.subheader("Hometown Pinpoint Map")
-if filtered.empty or 'lat' not in filtered.columns or 'lon' not in filtered.columns:
-    st.write("No location data available with current filters.")
-else:
-    map_data = filtered.dropna(subset=['lat', 'lon']).copy()
-    if map_data.empty:
-        st.write("No players with hometown coordinates in current view.")
-    else:
-        map_data['hover_text'] = map_data['firstname'] + " " + map_data['lastname'] + "<br>" + \
-                                 map_data['teamName'] + " (" + map_data['year'].astype(str) + ")<br>" + \
-                                 map_data['state'] + " | " + map_data['role']
-
-        fig = px.scatter_mapbox(
-            map_data,
-            lat='lat',
-            lon='lon',
-            hover_name='hover_text',
-            color='role',
-            color_discrete_map={'Hitter': '#00D4AA', 'Pitcher': '#FF6B6B'},
-            zoom=3,
-            height=500,
-            title="Player Hometowns — Zoom & Hover for Details"
+# State Hot Zones Map
+if map_choice == "State Hot Zones":
+    st.subheader("Hometown Hot Zones (US Map)")
+    if not filtered.empty:
+        state_counts = filtered.groupby('state').size().reset_index(name='player_count')
+        fig_map = px.choropleth(
+            state_counts,
+            locations='state',
+            locationmode='USA-states',
+            color='player_count',
+            scope='usa',
+            color_continuous_scale='Reds',
+            title='Hot Zones by State'
         )
-        
-        fig.update_layout(
-            mapbox_style="carto-darkmatter",
-            margin=dict(l=0, r=0, t=40, b=0),
-            plot_bgcolor='#0E1117',
+        fig_map.update_layout(
             paper_bgcolor='#0E1117',
+            plot_bgcolor='#0E1117',
             font_color='white',
-            legend_title_text='Role'
+            geo_bgcolor='#0E1117'
         )
-        
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
+    else:
+        st.write("No data matches filters.")
+
+# Pinpoint City Map
+else:
+    st.subheader("Hometown Pinpoint Map")
+    if filtered.empty or 'lat' not in filtered.columns or 'lon' not in filtered.columns:
+        st.write("No location data available with current filters.")
+    else:
+        map_data = filtered.dropna(subset=['lat', 'lon']).copy()
+        if map_data.empty:
+            st.write("No players with hometown coordinates in current view.")
+        else:
+            map_data['hover_text'] = map_data['firstname'] + " " + map_data['lastname'] + "<br>" + \
+                                     map_data['teamName'] + " (" + map_data['year'].astype(str) + ")<br>" + \
+                                     map_data['state'] + " | " + map_data['role']
+
+            fig = px.scatter_mapbox(
+                map_data,
+                lat='lat',
+                lon='lon',
+                hover_name='hover_text',
+                color='role',
+                color_discrete_map={'Hitter': '#00D4AA', 'Pitcher': '#FF6B6B'},
+                zoom=3,
+                height=500,
+                title="Player Hometowns — Zoom & Hover for Details"
+            )
+            
+            fig.update_layout(
+                mapbox_style="carto-darkmatter",
+                margin=dict(l=0, r=0, t=40, b=0),
+                plot_bgcolor='#0E1117',
+                paper_bgcolor='#0E1117',
+                font_color='white',
+                legend_title_text='Role'
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
 
 # Recruitment Patterns (Top Recruiting States)
 st.subheader("Recruitment Patterns (Top Recruiting States)")
