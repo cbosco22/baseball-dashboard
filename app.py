@@ -5,7 +5,7 @@ import numpy as np
 
 st.title("College Baseball Roster Analysis")
 
-# Reset button
+# Reset button in sidebar
 st.sidebar.header("Filters")
 if st.sidebar.button("Reset All Filters"):
     st.session_state.clear()
@@ -18,17 +18,14 @@ def load_data():
     pitchers['role'] = 'Pitcher'
     hitters['role'] = 'Hitter'
     df = pd.concat([pitchers, hitters], ignore_index=True, sort=False)
-
     # State
     df['state'] = df['hsplace'].str.split(',').str[-1].str.strip().str.upper()
     us_states = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY']
     df = df[df['state'].isin(us_states)]
-
     # Draft cleanup
     df['draft_year'] = pd.to_numeric(df['draft_year'], errors='coerce')
     df['draft_Round'] = pd.to_numeric(df['draft_Round'], errors='coerce').fillna(0)
     df['is_drafted'] = df['draft_year'].notna()
-
     # Region mapping
     region_map = {
         'East': ['KY','OH','PA','TN','WV'],
@@ -45,73 +42,105 @@ def load_data():
                 return r
         return 'Other'
     df['region'] = df['state'].apply(get_region)
-
-    # T90s and T90/PA — only for hitters
+    # T90s and T90/PA - ONLY for hitters (pitchers get NaN → grayed out in table)
     df['T90s'] = np.nan
     df['T90/PA'] = np.nan
     hitter_mask = df['role'] == 'Hitter'
     if hitter_mask.any():
-        df.loc[hitter_mask, 'Singles'] = (df.loc[hitter_mask, 'H'] - df.loc[hitter_mask, 'Dbl'] - df.loc[hitter_mask, 'Tpl'] - df.loc[hitter_mask, 'HR']).fillna(0)
-        df.loc[hitter_mask, 'TotalBases'] = (df.loc[hitter_mask, 'Singles'] + 2*df.loc[hitter_mask, 'Dbl'].fillna(0) + 3*df.loc[hitter_mask, 'Tpl'].fillna(0) + 4*df.loc[hitter_mask, 'HR'].fillna(0))
-        df.loc[hitter_mask, 'T90s'] = (df.loc[hitter_mask, 'TotalBases'] + df.loc[hitter_mask, 'SB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0))
-        df.loc[hitter_mask, 'PA'] = (df.loc[hitter_mask, 'AB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0) + df.loc[hitter_mask, 'SF'].fillna(0) + df.loc[hitter_mask, 'SH'].fillna(0))
+        df.loc[hitter_mask, 'Singles'] = df.loc[hitter_mask, 'H'] - df.loc[hitter_mask, 'Dbl'] - df.loc[hitter_mask, 'Tpl'] - df.loc[hitter_mask, 'HR']
+        df.loc[hitter_mask, 'Singles'] = df.loc[hitter_mask, 'Singles'].fillna(0)
+        df.loc[hitter_mask, 'TotalBases'] = df.loc[hitter_mask, 'Singles'] + 2*df.loc[hitter_mask, 'Dbl'].fillna(0) + 3*df.loc[hitter_mask, 'Tpl'].fillna(0) + 4*df.loc[hitter_mask, 'HR'].fillna(0)
+        df.loc[hitter_mask, 'T90s'] = df.loc[hitter_mask, 'TotalBases'] + df.loc[hitter_mask, 'SB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0)
+        df.loc[hitter_mask, 'PA'] = df.loc[hitter_mask, 'AB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0) + df.loc[hitter_mask, 'SF'].fillna(0) + df.loc[hitter_mask, 'SH'].fillna(0)
         df.loc[hitter_mask, 'T90/PA'] = df.loc[hitter_mask, 'T90s'] / df.loc[hitter_mask, 'PA'].replace(0, np.nan)
-
-    # Clean Bats/Throws/Position
+    # Clean Bats and Throws
     df['Bats'] = df['Bats'].str.upper().replace('B', 'S')
     df['Throws'] = df['Throws'].str.upper()
+    # Clean and standardize position
     df['posit'] = df['posit'].str.upper().str.strip()
-
-    # Miami → Miami-Ohio fix
+    # Fix Miami / Miami-Ohio
     df.loc[(df['teamName'] == 'Miami') & (df['LeagueAbbr'] == 'MAC'), 'teamName'] = 'Miami-Ohio'
+    # Power Conference / Mid Major / Low Major classification
+    power_conferences = [
+        'Atlantic Coast Conference',
+        'Big 12 Conference',
+        'Big Ten Conference',
+        'Pacific-10 Conference',
+        'Pacific-12 Conference',
+        'Southeastern Conference'
+    ]
+    low_major_conferences = [
+        'Big South Conference',
+        'Patriot League',
+        'Ivy League',
+        'America East Conference',
+        'Metro Atlantic Athletic Conference',
+        'Northeast Conference',
+        'Southwest Athletic Conference',
+        'Horizon League'
+    ]
 
-    # Conference type
-    power = ['Atlantic Coast Conference','Big 12 Conference','Big Ten Conference','Pacific-10 Conference','Pacific-12 Conference','Southeastern Conference']
-    low_major = ['Big South Conference','Patriot League','Ivy League','America East Conference','Metro Atlantic Athletic Conference','Northeast Conference','Southwest Athletic Conference','Horizon League']
-    df['conference_type'] = 'Mid Major'
-    df.loc[df['leagueName'].isin(power), 'conference_type'] = 'Power Conference'
-    df.loc[df['leagueName'].isin(low_major), 'conference_type'] = 'Low Major'
+    df['conference_type'] = 'Mid Major'  # default
+    df.loc[df['leagueName'].isin(power_conferences), 'conference_type'] = 'Power Conference'
+    df.loc[df['leagueName'].isin(low_major_conferences), 'conference_type'] = 'Low Major'
 
     # Academic School flag
-    academic_schools = ['Air Force','Army','Boston College','Brown','Bryant','Bryant University','Bucknell','California','Columbia','Cornell','Dartmouth','Davidson','Davidson College','Duke','Fordham','Georgetown','Georgia Tech','Harvard','Holy Cross','Lafayette','Lafayette College','Lehigh','Maryland','Massachusetts','Michigan','Navy','New Jersey Tech','North Carolina','Northeastern','Northwestern','Notre Dame','Penn','Pennsylvania','Princeton','Purdue','Rice','Richmond','Stanford','Tulane','UC Davis','UC Irvine','UC San Diego','UC Santa Barbara','UCLA','USC','Vanderbilt','Villanova','Virginia','Wake Forest','Washington','William and Mary','Wofford','Yale']
+    academic_schools = [
+        'Air Force', 'Army', 'Boston College', 'Brown', 'Bryant', 'Bryant University', 'Bucknell', 'California', 'Columbia', 'Cornell', 'Dartmouth', 'Davidson', 'Davidson College', 'Duke', 'Fordham', 'Georgetown', 'Georgia Tech', 'Harvard', 'Holy Cross', 'Lafayette', 'Lafayette College', 'Lehigh', 'Maryland', 'Massachusetts', 'Michigan', 'Navy', 'New Jersey Tech', 'North Carolina', 'Northeastern', 'Northwestern', 'Notre Dame', 'Penn', 'Pennsylvania', 'Princeton', 'Purdue', 'Rice', 'Richmond', 'Stanford', 'Tulane', 'UC Davis', 'UC Irvine', 'UC San Diego', 'UC Santa Barbara', 'UCLA', 'USC', 'Vanderbilt', 'Villanova', 'Virginia', 'Wake Forest', 'Washington', 'William and Mary', 'Wofford', 'Yale'
+    ]
     df['is_academic_school'] = df['teamName'].isin(academic_schools)
 
     return df
 
 data = load_data()
 
-# Filters
-year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (2015, int(data['year'].max())), key="year")
+# Sidebar Filters
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
-good_players_only = st.sidebar.checkbox("Good Players Only", key="good_players")
-if good_players_only:
-    st.sidebar.caption("Pitchers: IP > 30, WHIP < 1.35\nHitters: T90/PA > .550")
-league_filter = st.sidebar.multiselect("Conference", sorted(data['LeagueAbbr'].unique()), key="league")
+league_filter = st.sidebar.multiselect("League (blank = ALL)", sorted(data['LeagueAbbr'].unique()), key="league")
+team_filter = st.sidebar.multiselect("Team/School (blank = ALL)", sorted(data['teamName'].unique()), key="team")
+year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (int(data['year'].min()), int(data['year'].max())), key="year")
+state_filter = st.sidebar.multiselect("State (blank = ALL)", sorted(data['state'].unique()), key="state")
+region_filter = st.sidebar.multiselect("Region (blank = ALL)", sorted(data['region'].unique()), key="region")
+min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 0, key="min_games")
+
 conference_type_filter = st.sidebar.multiselect("Conference Type", options=['Power Conference', 'Mid Major', 'Low Major'], key="conference_type")
-academic_school_filter = st.sidebar.radio("School Academic Level", ["All", "Top 60 Academic"], key="academic_school")
-team_filter = st.sidebar.multiselect("Team", sorted(data['teamName'].unique()), key="team")
-state_filter = st.sidebar.multiselect("State", sorted(data['state'].unique()), key="state")
-region_filter = st.sidebar.multiselect("Region", sorted(data['region'].unique()), key="region")
-min_games = st.sidebar.slider("Minimum Games Played", 0, int(data['G'].max()), 5, key="min_games")
+
+academic_school_filter = st.sidebar.radio("Academic School", ["All", "Academic Schools Only"], key="academic_school")
+
 position_filter = st.sidebar.multiselect("Position", options=sorted(data['posit'].dropna().unique()), key="posit")
+
+# Bats and Throws
 bats_filter = st.sidebar.multiselect("Bats", options=['L', 'R', 'S'], key="bats")
 throws_filter = st.sidebar.multiselect("Throws", options=['L', 'R'], key="throws")
-name_search = st.sidebar.text_input("Search Player Name", key="name_search")
-draft_round_range = st.sidebar.slider("Draft Round Range", 0, 70, (0,70), key="draft_round")
 
-available_stats = ['ERA','OPS','W','L','SO','BB','HR','RBI','SB','CS','Bavg','Slg','obp','WHIP','IP','H','R','ER','G','GS','T90s','T90/PA']
-stat1 = st.sidebar.selectbox("Custom Stat Filter 1", ['None']+available_stats, key="stat1")
-if stat1 != 'None':
-    direction1 = st.sidebar.radio(f"{stat1} comparison", ["Greater than or equal to", "Less than or equal to"], key="dir1")
-    step1 = 0.1 if stat1 in ['ERA','OPS','Bavg','Slg','obp','WHIP','T90/PA'] else 1.0
+# Player name search
+name_search = st.sidebar.text_input("Search Player Name", key="name_search")
+
+# Draft round slider
+draft_round_range = st.sidebar.slider(
+    "Draft Round Range (0 = undrafted, 1+ = drafted round)",
+    min_value=0,
+    max_value=70,
+    value=(0, 70),
+    key="draft_round"
+)
+
+# Custom Stat Filters
+available_stats = ['ERA', 'OPS', 'W', 'L', 'SO', 'BB', 'HR', 'RBI', 'SB', 'CS', 'Bavg', 'Slg', 'obp', 'WHIP', 'IP', 'H', 'R', 'ER', 'G', 'GS', 'T90s', 'T90/PA']
+stat1 = st.sidebar.selectbox("Custom Stat Filter 1", options=['None'] + available_stats, index=0, key="stat1")
+filter1_applied = stat1 != 'None'
+if filter1_applied:
+    direction1 = st.sidebar.radio(f"{stat1} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir1")
+    step1 = 0.1 if stat1 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90/PA'] else 1.0
     value1 = st.sidebar.number_input(f"{stat1} value", value=0.0, step=step1, key="val1")
+
 stat2 = 'None'
-if stat1 != 'None':
+if filter1_applied:
     remaining = [s for s in available_stats if s != stat1]
-    stat2 = st.sidebar.selectbox("Custom Stat Filter 2", ['None']+remaining, key="stat2")
+    stat2 = st.sidebar.selectbox("Custom Stat Filter 2", options=['None'] + remaining, index=0, key="stat2")
 if stat2 != 'None':
-    direction2 = st.sidebar.radio(f"{stat2} comparison", ["Greater than or equal to", "Less than or equal to"], key="dir2")
-    step2 = 0.1 if stat2 in ['ERA','OPS','Bavg','Slg','obp','WHIP','T90/PA'] else 1.0
+    direction2 = st.sidebar.radio(f"{stat2} comparison", options=["Greater than or equal to", "Less than or equal to"], key="dir2")
+    step2 = 0.1 if stat2 in ['ERA', 'OPS', 'Bavg', 'Slg', 'obp', 'WHIP', 'T90/PA'] else 1.0
     value2 = st.sidebar.number_input(f"{stat2} value", value=0.0, step=step2, key="val2")
 
 # Base filtering
@@ -120,41 +149,68 @@ filtered = data[
     data['year'].between(*year_filter) &
     (data['G'] >= min_games)
 ]
-if league_filter: filtered = filtered[filtered['LeagueAbbr'].isin(league_filter)]
-if team_filter: filtered = filtered[filtered['teamName'].isin(team_filter)]
-if state_filter: filtered = filtered[filtered['state'].isin(state_filter)]
-if region_filter: filtered = filtered[filtered['region'].isin(region_filter)]
-if position_filter: filtered = filtered[filtered['posit'].isin(position_filter)]
-if bats_filter: filtered = filtered[filtered['Bats'].isin(bats_filter)]
-if throws_filter: filtered = filtered[filtered['Throws'].isin(throws_filter)]
+
+if league_filter:
+    filtered = filtered[filtered['LeagueAbbr'].isin(league_filter)]
+if team_filter:
+    filtered = filtered[filtered['teamName'].isin(team_filter)]
+if state_filter:
+    filtered = filtered[filtered['state'].isin(state_filter)]
+if region_filter:
+    filtered = filtered[filtered['region'].isin(region_filter)]
+if position_filter:
+    filtered = filtered[filtered['posit'].isin(position_filter)]
+if bats_filter:
+    filtered = filtered[filtered['Bats'].isin(bats_filter)]
+if throws_filter:
+    filtered = filtered[filtered['Throws'].isin(throws_filter)]
 if name_search:
-    filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) |
-                      filtered['lastname'].str.contains(name_search, case=False, na=False)]
+    filtered = filtered[filtered['firstname'].str.contains(name_search, case=False, na=False) | filtered['lastname'].str.contains(name_search, case=False, na=False)]
+
+# Conference Type filter
 if conference_type_filter:
     filtered = filtered[filtered['conference_type'].isin(conference_type_filter)]
-if academic_school_filter == "Top 60 Academic":
-    filtered = filtered[filtered['is_academic_school']]
-filtered = filtered[filtered['draft_Round'].between(*draft_round_range)]
 
+# Academic School filter
+if academic_school_filter == "Academic Schools Only":
+    filtered = filtered[filtered['is_academic_school']]
+
+# Draft round filter
+filtered = filtered[filtered['draft_Round'].between(draft_round_range[0], draft_round_range[1])]
+
+# Good Players Only filter
 if good_players_only:
     hitters_good = (filtered['role'] == 'Hitter') & (filtered['G'] > 30) & (filtered['T90/PA'] > 0.550)
     pitchers_good = (filtered['role'] == 'Pitcher') & (filtered['IP'] > 30) & (filtered['WHIP'] < 1.35)
     filtered = filtered[hitters_good | pitchers_good]
 
+# Custom stat filters
 if stat1 != 'None' and stat1 in filtered.columns:
-    filtered = filtered[filtered[stat1] >= value1] if direction1 == "Greater than or equal to" else filtered[filtered[stat1] <= value1]
-if stat2 != 'None' and stat2 in filtered.columns:
-    filtered = filtered[filtered[stat2] >= value2] if direction2 == "Greater than or equal to" else filtered[filtered[stat2] <= value2]
+    if direction1 == "Greater than or equal to":
+        filtered = filtered[filtered[stat1] >= value1]
+    else:
+        filtered = filtered[filtered[stat1] <= value1]
 
-# Column selector
+if stat2 != 'None' and stat2 in filtered.columns:
+    if direction2 == "Greater than or equal to":
+        filtered = filtered[filtered[stat2] >= value2]
+    else:
+        filtered = filtered[filtered[stat2] <= value2]
+
+# Column selector in expander
 with st.expander("Columns to show (click to expand)", expanded=False):
-    default_cols = ['lastname','firstname','teamName','year','Age','state','LeagueAbbr','experience','G','T90s','OPS','draft_Round','ERA','W','SV','IP','WHIP']
+    default_cols = ['lastname', 'firstname', 'teamName', 'year', 'Age', 'state', 'LeagueAbbr', 'experience', 'G', 'T90s', 'OPS', 'draft_Round', 'ERA', 'W', 'SV', 'IP', 'WHIP']
     available_default = [c for c in default_cols if c in filtered.columns]
     cols = st.multiselect("", options=filtered.columns.tolist(), default=available_default, key="cols")
 
-# Export
+# Export button
 csv = filtered.to_csv(index=False).encode('utf-8')
-st.download_button("Export Filtered Data as CSV", data=csv, file_name='college_baseball_filtered.csv', mime='text/csv')
+st.download_button(
+    label="Export Filtered Data as CSV",
+    data=csv,
+    file_name='college_baseball_filtered.csv',
+    mime='text/csv'
+)
 
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
 st.dataframe(filtered[cols] if cols else filtered.head(100), use_container_width=True, hide_index=True)
@@ -182,9 +238,8 @@ if not filtered.empty:
 else:
     st.write("No data matches filters.")
 
-# Pinpoint City Map — the version that worked the first time (shorter, with clustering)
+# Pinpoint City Map — shorter
 st.subheader("Hometown Pinpoint Map")
-
 if filtered.empty or 'lat' not in filtered.columns or 'lon' not in filtered.columns:
     st.write("No location data available with current filters.")
 else:
@@ -219,8 +274,8 @@ else:
         
         st.plotly_chart(fig, use_container_width=True)
 
-# Players by State — your exact current version with % and top schools
-st.subheader("Players by State")
+# Recruitment Patterns
+st.subheader("Recruitment Patterns (Top Recruiting States)")
 if filtered.empty:
     st.write("No data matches current filters.")
 else:
