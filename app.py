@@ -182,8 +182,9 @@ if not filtered.empty:
 else:
     st.write("No data matches filters.")
 
-# Pinpoint City Map — shorter, beautiful, with clustering
+# Pinpoint City Map — the version that worked the first time (shorter, with clustering)
 st.subheader("Hometown Pinpoint Map")
+
 if filtered.empty or 'lat' not in filtered.columns or 'lon' not in filtered.columns:
     st.write("No location data available with current filters.")
 else:
@@ -191,11 +192,9 @@ else:
     if map_data.empty:
         st.write("No players with hometown coordinates in current view.")
     else:
-        map_data['hover_text'] = (
-            map_data['firstname'] + " " + map_data['lastname'] + "<br>" +
-            map_data['teamName'] + " (" + map_data['year'].astype(str) + ")<br>" +
-            map_data['state'] + " | " + map_data['role']
-        )
+        map_data['hover_text'] = map_data['firstname'] + " " + map_data['lastname'] + "<br>" + \
+                                 map_data['teamName'] + " (" + map_data['year'].astype(str) + ")<br>" + \
+                                 map_data['state'] + " | " + map_data['role']
 
         fig = px.scatter_mapbox(
             map_data,
@@ -205,7 +204,7 @@ else:
             color='role',
             color_discrete_map={'Hitter': '#00D4AA', 'Pitcher': '#FF6B6B'},
             zoom=3,
-            height=520,
+            height=500,
             title="Player Hometowns — Zoom & Hover for Details"
         )
         
