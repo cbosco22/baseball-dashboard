@@ -224,12 +224,9 @@ else:
         if map_data.empty:
             st.write("No players with hometown coordinates in current view.")
         else:
-            map_data['hover_text'] = (
-                map_data['firstname'] + " " + map_data['lastname'] + "<br>" +
-                map_data['teamName'] + " (" + map_data['year'].astype(str) + ")<br>" +
-                map_data['state'] + " | " + map_data['role']
-            )
-            
+            map_data['hover_text'] = map_data['firstname'] + " " + map_data['lastname'] + "<br>" + \
+                                     map_data['teamName'] + " (" + map_data['year'].astype(str) + ")<br>" + \
+                                     map_data['state'] + " | " + map_data['role']
             fig = px.scatter_mapbox(
                 map_data,
                 lat='lat',
@@ -239,21 +236,32 @@ else:
                 color_discrete_map={'Hitter': '#00D4AA', 'Pitcher': '#FF6B6B'},
                 zoom=3,
                 height=500,
-                mapbox_style="carto-positron",  # Light map tiles (no token needed)
                 title="Player Hometowns — Zoom & Hover for Details"
             )
-            
+           
+            # Original dark layout
             fig.update_layout(
                 margin=dict(l=0, r=0, t=40, b=0),
-                plot_bgcolor='white',       # Light background inside the plot area
-                paper_bgcolor='white',      # Light outer background
-                font_color='black',         # Dark text/legend/title
-                title_font_color='black',
-                legend_title_text='Role',
-                legend=dict(font=dict(color='black'))
+                plot_bgcolor='#0E1117',
+                paper_bgcolor='#0E1117',
+                font_color='white',
+                legend_title_text='Role'
             )
-            
-            # Remove theme="streamlit" to prevent overriding the map style
+           
+            # Add bold white state border outlines
+            fig.update_layout(
+                mapbox_layers=[
+                    {
+                        "below": 'traces',  # Places borders under the points
+                        "sourcetype": "geojson",
+                        "source": "https://raw.githubusercontent.com/python-visualization/folium/main/examples/data/us-states.json",
+                        "type": "line",
+                        "color": "white",
+                        "line": {"width": 2.5}  # Thicker for more contrast; adjust as needed (e.g., 3 or 4)
+                    }
+                ]
+            )
+           
             st.plotly_chart(fig, use_container_width=True)
             
 # Recruitment Patterns (Top Recruiting States)
