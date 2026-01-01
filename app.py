@@ -242,7 +242,6 @@ else:
             )
             
             fig.update_layout(
-                mapbox_style="carto-darkmatter",
                 margin=dict(l=0, r=0, t=40, b=0),
                 plot_bgcolor='#0E1117',
                 paper_bgcolor='#0E1117',
