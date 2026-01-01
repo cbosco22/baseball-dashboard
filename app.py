@@ -215,40 +215,44 @@ if map_choice == "State Hot Zones":
     else:
         st.write("No data matches filters.")
 
-st.subheader("Hometown Pinpoint Map")
-    if filtered.empty or 'lat' not in filtered.columns or 'lon' not in filtered.columns:
-        st.write("No location data available with current filters.")
-    else:
-        map_data = filtered.dropna(subset=['lat', 'lon']).copy()
-        if map_data.empty:
-            st.write("No players with hometown coordinates in current view.")
-        else:
-            map_data['hover_text'] = map_data['firstname'] + " " + map_data['lastname'] + "
-" + 
-                                     map_data['teamName'] + " (" + map_data['year'].astype(str) + ")
-" + 
-                                     map_data['state'] + " | " + map_data['role']
-            fig = px.scatter_mapbox(
-                map_data,
-                lat='lat',
-                lon='lon',
-                hover_name='hover_text',
-                color='role',
-                color_discrete_map={'Hitter': '#00D4AA', 'Pitcher': '#FF6B6B'},
-                zoom=3,
-                height=500,
-                title="Player Hometowns — Zoom & Hover for Details"
-            )
-           
-            fig.update_layout(
-                margin=dict(l=0, r=0, t=40, b=0),
-                plot_bgcolor='#0E1117',
-                paper_bgcolor='#0E1117',
-                font_color='white',
-                legend_title_text='Role'
-            )
-           
-            st.plotly_chart(fig, use_container_width=True)
+else:
+    st.subheader("Hometown Pinpoint Map")
+    if filtered.empty or 'lat' not in filtered.columns or 'lon' not in filtered.columns:
+        st.write("No location data available with current filters.")
+    else:
+        map_data = filtered.dropna(subset=['lat', 'lon']).copy()
+        if map_data.empty:
+            st.write("No players with hometown coordinates in current view.")
+        else:
+            map_data['hover_text'] = (
+                map_data['firstname'] + " " + map_data['lastname'] + "<br>" +
+                map_data['teamName'] + " (" + map_data['year'].astype(str) + ")<br>" +
+                map_data['state'] + " | " + map_data['role']
+            )
+            
+            fig = px.scatter_mapbox(
+                map_data,
+                lat='lat',
+                lon='lon',
+                hover_name='hover_text',
+                color='role',
+                color_discrete_map={'Hitter': '#00D4AA', 'Pitcher': '#FF6B6B'},
+                zoom=3,
+                height=500,
+                mapbox_style="carto-positron",  # Clean light base map
+                title="Player Hometowns — Zoom & Hover for Details"
+            )
+            
+            fig.update_layout(
+                margin=dict(l=0, r=0, t=40, b=0),
+                plot_bgcolor='white',
+                paper_bgcolor='white',
+                font_color='black',
+                legend_title_text='Role',
+                title_font_color='black'
+            )
+            
+            st.plotly_chart(fig, use_container_width=True, theme="streamlit")
             
 # Recruitment Patterns (Top Recruiting States)
 st.subheader("Recruitment Patterns (Top Recruiting States)")
