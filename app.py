@@ -21,7 +21,7 @@ def load_data():
 
     # State
     df['state'] = df['hsplace'].str.split(',').str[-1].str.strip().str.upper()
-    us_states = ['AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY']
+    us_states = ['AL','AK','AZ','AR','CA','CO','CT','DC','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY']
     df = df[df['state'].isin(us_states)]
 
     # Draft cleanup
@@ -32,7 +32,7 @@ def load_data():
     # Region mapping
     region_map = {
         'East': ['KY','OH','PA','TN','WV'],
-        'Mid Atlantic': ['DE','MD','NJ','NY','VA'],
+        'Mid Atlantic': ['DC','DE','MD','NJ','NY','VA'],
         'Midwest I': ['IL','IN','IA','KS','MI','MN','MO','NE','ND','SD','WI'],
         'Midwest II': ['AR','OK','TX'],
         'New England': ['CT','ME','MA','NH','RI','VT'],
