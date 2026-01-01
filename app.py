@@ -239,20 +239,23 @@ else:
                 color_discrete_map={'Hitter': '#00D4AA', 'Pitcher': '#FF6B6B'},
                 zoom=3,
                 height=500,
-                mapbox_style="carto-positron",  # Clean light base map
+                mapbox_style="carto-positron",  # Light map tiles (no token needed)
                 title="Player Hometowns — Zoom & Hover for Details"
             )
             
             fig.update_layout(
                 margin=dict(l=0, r=0, t=40, b=0),
-                plot_bgcolor='white',
-                paper_bgcolor='white',
-                font_color='black',
+                plot_bgcolor='white',       # Light background inside the plot area
+                paper_bgcolor='white',      # Light outer background
+                font_color='black',         # Dark text/legend/title
+                title_font_color='black',
                 legend_title_text='Role',
-                title_font_color='black'
+                legend=dict(font=dict(color='black'))
             )
             
-            st.plotly_chart(fig, use_container_width=True, theme="streamlit")
+            # Remove theme="streamlit" to prevent overriding the map style
+            st.plotly_chart(fig, use_container_width=True)
+            
 # Recruitment Patterns (Top Recruiting States)
 st.subheader("Recruitment Patterns (Top Recruiting States)")
 if filtered.empty:
