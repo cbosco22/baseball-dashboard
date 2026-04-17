@@ -9,7 +9,7 @@ if 'print_mode' not in st.session_state:
 
 st.title("College Baseball Roster Analysis")
 
-# === PRINT REPORT BUTTON ===
+# Print Report Button
 col_title, col_print = st.columns([4, 1])
 with col_title:
     st.title("College Baseball Roster Analysis")
@@ -18,56 +18,7 @@ with col_print:
         st.session_state.print_mode = True
         st.rerun()
 
-# Print-friendly CSS and header
-if st.session_state.print_mode:
-    st.markdown("""
-    <style>
-        @media print {
-            .stSidebar, .stDownloadButton, button[kind="primary"] {display: none !important;}
-            .main .block-container {padding: 1rem !important; max-width: 100% !important;}
-            .stApp, body, .stMarkdown, .stPlotlyChart, .stDataFrame {background-color: white !important; color: black !important;}
-            .stPlotlyChart {border: none !important; box-shadow: none !important;}
-            h1, h2, h3 {page-break-after: avoid !important; color: #0066cc !important;}
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div style="text-align:center; margin: 20px 0;">
-        <button onclick="window.print()" style="font-size:18px; padding:12px 32px; background:#0066cc; color:white; border:none; border-radius:8px; cursor:pointer;">
-            🖨️ Print / Save as PDF Now
-        </button>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown("<h1 style='text-align:center; color:#0066cc;'>College Baseball Roster Analysis — Printable Report</h1>", unsafe_allow_html=True)
-
-    # Summary of applied filters
-    st.subheader("Filters Applied")
-    st.write(f"**Year Range:** {year_filter}")
-    st.write(f"**Role:** {', '.join(role_filter)}")
-    if good_players_only:
-        st.write("**Good Players Only:** Enabled")
-    if league_filter:
-        st.write(f"**Conference:** {', '.join(league_filter)}")
-    if conference_type_filter:
-        st.write(f"**Conference Type:** {', '.join(conference_type_filter)}")
-    if academic_school_filter == "Top 60 Academic":
-        st.write("**School Academic Level:** Top 60 Academic")
-    if team_filter:
-        st.write(f"**Team:** {', '.join(team_filter)}")
-    if state_filter:
-        st.write(f"**State:** {', '.join(state_filter)}")
-    if region_filter:
-        st.write(f"**Region:** {', '.join(region_filter)}")
-    st.write(f"**Minimum Games Played:** {min_games}")
-    if position_filter:
-        st.write(f"**Position:** {', '.join(position_filter)}")
-    if name_search:
-        st.write(f"**Player Name Search:** {name_search}")
-    st.markdown("---")
-
-# Reset button
+# Reset button in sidebar
 st.sidebar.header("Filters")
 if st.sidebar.button("Reset All Filters"):
     st.session_state.clear()
@@ -160,7 +111,7 @@ def load_data():
 
 data = load_data()
 
-# Sidebar Filters (unchanged)
+# Sidebar Filters
 year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (2015, int(data['year'].max())), key="year")
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 good_players_only = st.sidebar.checkbox("Good Players Only", key="good_players")
@@ -193,7 +144,7 @@ if stat2 != 'None':
     step2 = 0.1 if stat2 in ['ERA','OPS','Bavg','Slg','obp','WHIP','T90/PA'] else 1.0
     value2 = st.sidebar.number_input(f"{stat2} value", value=0.0, step=step2, key="val2")
 
-# Base filtering (unchanged)
+# Base filtering
 filtered = data[
     data['role'].isin(role_filter) &
     data['year'].between(*year_filter) &
@@ -235,7 +186,7 @@ st.download_button("Export Filtered Data as CSV", data=csv, file_name='college_b
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
 st.dataframe(filtered[cols] if cols else filtered.head(100), use_container_width=True, hide_index=True)
 
-# === LIGHT MODE FOR ALL CHARTS WHEN PRINTING ===
+# Light mode settings for charts
 print_mode = st.session_state.get('print_mode', False)
 chart_template = "plotly_white" if print_mode else None
 chart_paper_bg = "white" if print_mode else '#0E1117'
@@ -292,7 +243,6 @@ else:
                 height=500,
                 title="Player Hometowns — Zoom & Hover for Details"
             )
-           
             fig.update_layout(
                 mapbox_style="carto-darkmatter" if not print_mode else "carto-positron",
                 margin=dict(l=0, r=0, t=40, b=0),
@@ -301,10 +251,9 @@ else:
                 font_color=chart_font_color,
                 legend_title_text='Role'
             )
-           
             st.plotly_chart(fig, use_container_width=True)
 
-# Recruitment Patterns (Top Recruiting States)
+# Recruitment Patterns
 st.subheader("Recruitment Patterns (Top Recruiting States)")
 if filtered.empty:
     st.write("No data matches current filters.")
@@ -341,7 +290,6 @@ else:
         showlegend=True,
         legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02)
     )
-   
     st.plotly_chart(fig, use_container_width=True)
 
 # Players by Region
@@ -412,39 +360,4 @@ else:
         )
         fig.update_traces(textposition='inside', textinfo='percent+label')
         fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), showlegend=False,
-                          plot_bgcolor=chart_paper_bg, paper_bgcolor=chart_paper_bg, font_color=chart_font_color)
-        st.plotly_chart(fig, use_container_width=True)
-
-# Top Performers
-st.subheader("Top Performers (within current filters)")
-def make_leaderboard(title, df, stat_col, min_qual_col=None, min_qual_value=None, ascending=False):
-    if min_qual_col and min_qual_value:
-        df = df[df[min_qual_col] >= min_qual_value]
-    if df.empty:
-        st.write(f"**{title}** — No players qualify")
-        return
-    top = df.nlargest(50, stat_col) if not ascending else df.nsmallest(50, stat_col)
-    top = top[['firstname','lastname','teamName','year','state',stat_col]].copy()
-    top = top.reset_index(drop=True)
-    top.index = top.index + 1
-    st.write(f"**{title}**")
-    st.dataframe(top, use_container_width=True, hide_index=False, height=240)
-
-if 'OPS' in filtered.columns and 'PA' in filtered.columns:
-    hitter_ops = filtered[filtered['role'] == 'Hitter'].copy()
-    make_leaderboard("Top 50 Highest OPS Hitters (min 100 PA)", hitter_ops, 'OPS', 'PA', 100)
-if 'T90/PA' in filtered.columns and 'PA' in filtered.columns:
-    hitter_t90 = filtered[filtered['role'] == 'Hitter'].copy()
-    make_leaderboard("Top 50 T90/PA (min 100 PA)", hitter_t90, 'T90/PA', 'PA', 100)
-if 'ERA' in filtered.columns and 'IP' in filtered.columns:
-    pitcher_era = filtered[filtered['role'] == 'Pitcher'].copy()
-    make_leaderboard("Top 50 Lowest ERA Pitchers (min 50 IP)", pitcher_era, 'ERA', 'IP', 50, ascending=True)
-if 'SO' in filtered.columns and 'IP' in filtered.columns:
-    pitcher_so = filtered[filtered['role'] == 'Pitcher'].copy()
-    make_leaderboard("Top 50 Highest Strikeout Pitchers (min 50 IP)", pitcher_so, 'SO', 'IP', 50)
-
-# Exit print mode button
-if st.session_state.print_mode:
-    if st.button("← Back to Interactive Dashboard"):
-        st.session_state.print_mode = False
-        st.rerun()
+                          plot_bgcolor=chart_paper_bg, paper_bgcolor=
