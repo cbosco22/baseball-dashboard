@@ -257,36 +257,36 @@ st.subheader("Recruitment Patterns (Top Recruiting States)")
 if filtered.empty:
     st.write("No data matches current filters.")
 else:
-    # Simple version - no top 4 + Other logic
+    # Simple version
     state_team_counts = filtered.groupby(['state', 'teamName']).size().reset_index(name='count')
     
-    # Calculate state totals
+    # Calculate state totals and sort by count DESC (highest first)
     state_totals = state_team_counts.groupby('state')['count'].sum().reset_index()
     state_totals['pct'] = (state_totals['count'] / len(filtered) * 100).round(1)
     
-    # Get top 15 states (by total players)
-    top15 = state_totals.nlargest(15, 'count')
-    top_states = top15['state'].tolist()
+    # Get top 15 states, already sorted highest to lowest
+    state_totals = state_totals.sort_values('count', ascending=False).head(15)
+    top_states = state_totals['state'].tolist()
     
-    # Filter data to top 15 states only
+    # Filter data to only top 15 states
     plot_data = state_team_counts[state_team_counts['state'].isin(top_states)].copy()
     
-    # Keep alphabetical order for the states (as requested)
+    # IMPORTANT: Use the order from state_totals (highest to lowest), NOT sorted()
     plot_data['state'] = pd.Categorical(
         plot_data['state'], 
-        categories=sorted(top_states),   # <-- alphabetical
+        categories=top_states,      # ← This preserves highest-to-lowest order
         ordered=True
     )
     
-    # Sort the data
+    # Sort the data for plotting
     plot_data = plot_data.sort_values(['state', 'count'], ascending=[True, False])
     
     # Create nice labels with percentage
-    state_labels = {s: f"{s} ({top15.loc[top15['state']==s, 'pct'].iloc[0]}%)" 
+    state_labels = {s: f"{s} ({state_totals.loc[state_totals['state'] == s, 'pct'].iloc[0]}%)" 
                     for s in top_states}
     plot_data['state_label'] = plot_data['state'].map(state_labels)
     
-    # Plot
+    # Plot - now properly ordered highest to lowest
     fig = px.bar(plot_data, 
                  x='count', 
                  y='state_label', 
