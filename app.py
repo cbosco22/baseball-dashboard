@@ -254,41 +254,22 @@ else:
 
 # Recruitment Patterns (Top Recruiting States)
 st.subheader("Recruitment Patterns (Top Recruiting States)")
-if filtered.empty:
-    st.write("No data matches current filters.")
-else:
-    grouped = filtered.groupby(['state', 'teamName']).size().reset_index(name='count')
-    
-    def top_n_plus_other(g):
-        if len(g) <= 5:
-            return g
-        top4 = g.nlargest(4, 'count')
-        other_count = g['count'].sum() - top4['count'].sum()
-        other = pd.DataFrame([{'state': g.name, 'teamName': 'Other', 'count': other_count}])
-        return pd.concat([top4, other], ignore_index=True)
-    
-    grouped = grouped.groupby('state').apply(top_n_plus_other).reset_index(drop=True)
-    
-    state_totals = grouped.groupby('state')['count'].sum().reset_index()
+if not filtered.empty:
+    state_team_counts = filtered.groupby(['state', 'teamName']).size().reset_index(name='count')
+    state_totals = state_team_counts.groupby('state')['count'].sum().reset_index()
     state_totals['pct'] = (state_totals['count'] / len(filtered) * 100).round(1)
     
-    top15_states = state_totals.nlargest(15, 'count')['state'].tolist()
-    grouped = grouped[grouped['state'].isin(top15_states)]
+    top15 = state_totals.nlargest(15, 'count')
+    top_states = top15['state'].tolist()
     
-    grouped['state'] = pd.Categorical(grouped['state'], categories=top15_states, ordered=True)
-    grouped = grouped.sort_values(['state', 'count'], ascending=[True, False])
+    plot_data = state_team_counts[state_team_counts['state'].isin(top_states)].copy()
+    plot_data['state'] = pd.Categorical(plot_data['state'], categories=top_states, ordered=True)
     
-    state_labels = {s: f"{s} ({state_totals.loc[state_totals['state']==s, 'pct'].iloc[0]}%)" for s in top15_states}
-    grouped['state_label'] = grouped['state'].map(state_labels)
-    
-    fig = px.bar(grouped, x='count', y='state_label', color='teamName', orientation='h',
-                 height=700, hover_data={'count': True})
-    fig.update_layout(barmode='stack', yaxis_title="", xaxis_title="Number of Players",
-                      legend_title="Team", plot_bgcolor='#0E1117', paper_bgcolor='#0E1117',
-                      font_color='white', showlegend=True,
-                      legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02))
+    fig = px.bar(plot_data, x='count', y='state', color='teamName', orientation='h',
+                 height=700, title="Top 15 Recruiting States by Team")
+    fig.update_layout(barmode='stack', yaxis_title="", xaxis_title="Players Recruited")
     st.plotly_chart(fig, use_container_width=True)
-
+    
 # Players by Region
 st.subheader("Players by Region")
 if not filtered.empty:
