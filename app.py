@@ -257,53 +257,37 @@ st.subheader("Recruitment Patterns (Top Recruiting States)")
 if filtered.empty:
     st.write("No data matches current filters.")
 else:
-    # Count players per state + team
-    grouped = filtered.groupby(['state', 'teamName']).size().reset_index(name='count')
+    # Simple version - no top 4 + Other logic
+    state_team_counts = filtered.groupby(['state', 'teamName']).size().reset_index(name='count')
     
-    # For each state: keep top 4 teams + "Other"
-    def top_n_plus_other(g):
-        if len(g) <= 5:
-            return g
-        top4 = g.nlargest(4, 'count')
-        other_count = g['count'].sum() - top4['count'].sum()
-        other = pd.DataFrame([{'state': g.name, 'teamName': 'Other', 'count': other_count}])
-        return pd.concat([top4, other], ignore_index=True)
-    
-    # Apply and keep the 'state' column properly
-    grouped = (grouped.groupby('state')
-                      .apply(top_n_plus_other)
-                      .reset_index(level=0)
-                      .reset_index(drop=True))
-    
-    # Calculate state totals and sort by total players DESC
-    state_totals = grouped.groupby('state')['count'].sum().reset_index()
+    # Calculate state totals
+    state_totals = state_team_counts.groupby('state')['count'].sum().reset_index()
     state_totals['pct'] = (state_totals['count'] / len(filtered) * 100).round(1)
     
-    # Sort states by total count (highest to lowest)
-    state_totals = state_totals.sort_values('count', ascending=False)
+    # Get top 15 states (by total players)
+    top15 = state_totals.nlargest(15, 'count')
+    top_states = top15['state'].tolist()
     
-    top15_states = state_totals.head(15)['state'].tolist()
+    # Filter data to top 15 states only
+    plot_data = state_team_counts[state_team_counts['state'].isin(top_states)].copy()
     
-    # Filter to top 15 states
-    grouped = grouped[grouped['state'].isin(top15_states)].copy()
-    
-    # Create ordered category based on total players (not alphabetical)
-    grouped['state'] = pd.Categorical(
-        grouped['state'], 
-        categories=top15_states, 
+    # Keep alphabetical order for the states (as requested)
+    plot_data['state'] = pd.Categorical(
+        plot_data['state'], 
+        categories=sorted(top_states),   # <-- alphabetical
         ordered=True
     )
     
     # Sort the data
-    grouped = grouped.sort_values(['state', 'count'], ascending=[True, False])
+    plot_data = plot_data.sort_values(['state', 'count'], ascending=[True, False])
     
-    # Nice state labels with percentage
-    state_labels = {s: f"{s} ({state_totals.loc[state_totals['state']==s, 'pct'].iloc[0]}%)" 
-                    for s in top15_states}
-    grouped['state_label'] = grouped['state'].map(state_labels)
+    # Create nice labels with percentage
+    state_labels = {s: f"{s} ({top15.loc[top15['state']==s, 'pct'].iloc[0]}%)" 
+                    for s in top_states}
+    plot_data['state_label'] = plot_data['state'].map(state_labels)
     
-    # Plot - now sorted highest to lowest total players
-    fig = px.bar(grouped, 
+    # Plot
+    fig = px.bar(plot_data, 
                  x='count', 
                  y='state_label', 
                  color='teamName', 
