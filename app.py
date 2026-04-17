@@ -3,7 +3,69 @@ import pandas as pd
 import plotly.express as px
 import numpy as np
 
+# Initialize print mode
+if 'print_mode' not in st.session_state:
+    st.session_state.print_mode = False
+
 st.title("College Baseball Roster Analysis")
+
+# === PRINT REPORT BUTTON ===
+col_title, col_print = st.columns([4, 1])
+with col_title:
+    st.title("College Baseball Roster Analysis")
+with col_print:
+    if st.button("🖨️ Print A Report", type="primary", use_container_width=True):
+        st.session_state.print_mode = True
+        st.rerun()
+
+# Print-friendly CSS and header
+if st.session_state.print_mode:
+    st.markdown("""
+    <style>
+        @media print {
+            .stSidebar, .stDownloadButton, button[kind="primary"] {display: none !important;}
+            .main .block-container {padding: 1rem !important; max-width: 100% !important;}
+            .stApp, body, .stMarkdown, .stPlotlyChart, .stDataFrame {background-color: white !important; color: black !important;}
+            .stPlotlyChart {border: none !important; box-shadow: none !important;}
+            h1, h2, h3 {page-break-after: avoid !important; color: #0066cc !important;}
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="text-align:center; margin: 20px 0;">
+        <button onclick="window.print()" style="font-size:18px; padding:12px 32px; background:#0066cc; color:white; border:none; border-radius:8px; cursor:pointer;">
+            🖨️ Print / Save as PDF Now
+        </button>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<h1 style='text-align:center; color:#0066cc;'>College Baseball Roster Analysis — Printable Report</h1>", unsafe_allow_html=True)
+
+    # Summary of applied filters
+    st.subheader("Filters Applied")
+    st.write(f"**Year Range:** {year_filter}")
+    st.write(f"**Role:** {', '.join(role_filter)}")
+    if good_players_only:
+        st.write("**Good Players Only:** Enabled")
+    if league_filter:
+        st.write(f"**Conference:** {', '.join(league_filter)}")
+    if conference_type_filter:
+        st.write(f"**Conference Type:** {', '.join(conference_type_filter)}")
+    if academic_school_filter == "Top 60 Academic":
+        st.write("**School Academic Level:** Top 60 Academic")
+    if team_filter:
+        st.write(f"**Team:** {', '.join(team_filter)}")
+    if state_filter:
+        st.write(f"**State:** {', '.join(state_filter)}")
+    if region_filter:
+        st.write(f"**Region:** {', '.join(region_filter)}")
+    st.write(f"**Minimum Games Played:** {min_games}")
+    if position_filter:
+        st.write(f"**Position:** {', '.join(position_filter)}")
+    if name_search:
+        st.write(f"**Player Name Search:** {name_search}")
+    st.markdown("---")
 
 # Reset button
 st.sidebar.header("Filters")
@@ -18,17 +80,14 @@ def load_data():
     pitchers['role'] = 'Pitcher'
     hitters['role'] = 'Hitter'
     df = pd.concat([pitchers, hitters], ignore_index=True, sort=False)
-
     # State
     df['state'] = df['hsplace'].str.split(',').str[-1].str.strip().str.upper()
     us_states = ['AL','AK','AZ','AR','CA','CO','CT','DC','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY']
     df = df[df['state'].isin(us_states)]
-
     # Draft cleanup
     df['draft_year'] = pd.to_numeric(df['draft_year'], errors='coerce')
     df['draft_Round'] = pd.to_numeric(df['draft_Round'], errors='coerce').fillna(0)
     df['is_drafted'] = df['draft_year'].notna()
-
     # Region mapping
     region_map = {
         'East': ['KY','OH','PA','TN','WV'],
@@ -45,7 +104,6 @@ def load_data():
                 return r
         return 'Other'
     df['region'] = df['state'].apply(get_region)
-
     # T90s and T90/PA — only for hitters
     df['T90s'] = np.nan
     df['T90/PA'] = np.nan
@@ -56,17 +114,13 @@ def load_data():
         df.loc[hitter_mask, 'T90s'] = (df.loc[hitter_mask, 'TotalBases'] + df.loc[hitter_mask, 'SB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0))
         df.loc[hitter_mask, 'PA'] = (df.loc[hitter_mask, 'AB'].fillna(0) + df.loc[hitter_mask, 'BB'].fillna(0) + df.loc[hitter_mask, 'HBP'].fillna(0) + df.loc[hitter_mask, 'SF'].fillna(0) + df.loc[hitter_mask, 'SH'].fillna(0))
         df.loc[hitter_mask, 'T90/PA'] = df.loc[hitter_mask, 'T90s'] / df.loc[hitter_mask, 'PA'].replace(0, np.nan)
-
     # Clean Bats and Throws
     df['Bats'] = df['Bats'].str.upper().replace('B', 'S')
     df['Throws'] = df['Throws'].str.upper()
-
     # Clean and standardize position
     df['posit'] = df['posit'].str.upper().str.strip()
-
     # Fix Miami / Miami-Ohio
     df.loc[(df['teamName'] == 'Miami') & (df['LeagueAbbr'] == 'MAC'), 'teamName'] = 'Miami-Ohio'
-
     # Power Conference / Mid Major / Low Major classification
     power_conferences = [
         'Atlantic Coast Conference',
@@ -86,11 +140,9 @@ def load_data():
         'Southwest Athletic Conference',
         'Horizon League'
     ]
-
-    df['conference_type'] = 'Mid Major'  # default
+    df['conference_type'] = 'Mid Major' # default
     df.loc[df['leagueName'].isin(power_conferences), 'conference_type'] = 'Power Conference'
     df.loc[df['leagueName'].isin(low_major_conferences), 'conference_type'] = 'Low Major'
-
     # Academic School flag
     academic_schools = [
         'Air Force', 'Army', 'Boston College', 'Brown', 'Bryant', 'Bryant University', 'Bucknell',
@@ -104,12 +156,11 @@ def load_data():
         'William and Mary', 'Wofford', 'Yale'
     ]
     df['is_academic_school'] = df['teamName'].isin(academic_schools)
-
     return df
 
 data = load_data()
 
-# Sidebar Filters
+# Sidebar Filters (unchanged)
 year_filter = st.sidebar.slider("Year Range", int(data['year'].min()), int(data['year'].max()), (2015, int(data['year'].max())), key="year")
 role_filter = st.sidebar.multiselect("Role", ['Pitcher','Hitter'], default=['Pitcher','Hitter'], key="role")
 good_players_only = st.sidebar.checkbox("Good Players Only", key="good_players")
@@ -127,7 +178,6 @@ bats_filter = st.sidebar.multiselect("Bats", options=['L', 'R', 'S'], key="bats"
 throws_filter = st.sidebar.multiselect("Throws", options=['L', 'R'], key="throws")
 name_search = st.sidebar.text_input("Search Player Name", key="name_search")
 draft_round_range = st.sidebar.slider("Draft Round Range", 0, 70, (0,70), key="draft_round")
-
 available_stats = ['ERA','OPS','W','L','SO','BB','HR','RBI','SB','CS','Bavg','Slg','obp','WHIP','IP','H','R','ER','G','GS','T90s','T90/PA']
 stat1 = st.sidebar.selectbox("Custom Stat Filter 1", ['None']+available_stats, key="stat1")
 if stat1 != 'None':
@@ -143,13 +193,12 @@ if stat2 != 'None':
     step2 = 0.1 if stat2 in ['ERA','OPS','Bavg','Slg','obp','WHIP','T90/PA'] else 1.0
     value2 = st.sidebar.number_input(f"{stat2} value", value=0.0, step=step2, key="val2")
 
-# Base filtering
+# Base filtering (unchanged)
 filtered = data[
     data['role'].isin(role_filter) &
     data['year'].between(*year_filter) &
     (data['G'] >= min_games)
 ]
-
 if league_filter: filtered = filtered[filtered['LeagueAbbr'].isin(league_filter)]
 if team_filter: filtered = filtered[filtered['teamName'].isin(team_filter)]
 if state_filter: filtered = filtered[filtered['state'].isin(state_filter)]
@@ -164,12 +213,10 @@ if conference_type_filter:
 if academic_school_filter == "Top 60 Academic":
     filtered = filtered[filtered['is_academic_school']]
 filtered = filtered[filtered['draft_Round'].between(*draft_round_range)]
-
 if good_players_only:
     hitters_good = (filtered['role'] == 'Hitter') & (filtered['G'] > 30) & (filtered['T90/PA'] > 0.550)
     pitchers_good = (filtered['role'] == 'Pitcher') & (filtered['IP'] > 30) & (filtered['WHIP'] < 1.35)
     filtered = filtered[hitters_good | pitchers_good]
-
 if stat1 != 'None' and stat1 in filtered.columns:
     filtered = filtered[filtered[stat1] >= value1] if direction1 == "Greater than or equal to" else filtered[filtered[stat1] <= value1]
 if stat2 != 'None' and stat2 in filtered.columns:
@@ -187,6 +234,12 @@ st.download_button("Export Filtered Data as CSV", data=csv, file_name='college_b
 
 st.subheader(f"Filtered Players – {len(filtered):,} rows")
 st.dataframe(filtered[cols] if cols else filtered.head(100), use_container_width=True, hide_index=True)
+
+# === LIGHT MODE FOR ALL CHARTS WHEN PRINTING ===
+print_mode = st.session_state.get('print_mode', False)
+chart_template = "plotly_white" if print_mode else None
+chart_paper_bg = "white" if print_mode else '#0E1117'
+chart_font_color = "black" if print_mode else "white"
 
 # Dropdown to choose map
 map_choice = st.selectbox("Hometown Map View", ["State Hot Zones", "Pinpoint Cities"], key="map_choice")
@@ -206,10 +259,10 @@ if map_choice == "State Hot Zones":
             title='Hot Zones by State'
         )
         fig_map.update_layout(
-            paper_bgcolor='#0E1117',
-            plot_bgcolor='#0E1117',
-            font_color='white',
-            geo_bgcolor='#0E1117'
+            paper_bgcolor=chart_paper_bg,
+            plot_bgcolor=chart_paper_bg,
+            font_color=chart_font_color,
+            geo_bgcolor=chart_paper_bg
         )
         st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
     else:
@@ -228,7 +281,6 @@ else:
             map_data['hover_text'] = map_data['firstname'] + " " + map_data['lastname'] + "<br>" + \
                                      map_data['teamName'] + " (" + map_data['year'].astype(str) + ")<br>" + \
                                      map_data['state'] + " | " + map_data['role']
-
             fig = px.scatter_mapbox(
                 map_data,
                 lat='lat',
@@ -240,16 +292,16 @@ else:
                 height=500,
                 title="Player Hometowns — Zoom & Hover for Details"
             )
-            
+           
             fig.update_layout(
-                mapbox_style="carto-darkmatter",
+                mapbox_style="carto-darkmatter" if not print_mode else "carto-positron",
                 margin=dict(l=0, r=0, t=40, b=0),
-                plot_bgcolor='#0E1117',
-                paper_bgcolor='#0E1117',
-                font_color='white',
+                plot_bgcolor=chart_paper_bg,
+                paper_bgcolor=chart_paper_bg,
+                font_color=chart_font_color,
                 legend_title_text='Role'
             )
-            
+           
             st.plotly_chart(fig, use_container_width=True)
 
 # Recruitment Patterns (Top Recruiting States)
@@ -257,59 +309,41 @@ st.subheader("Recruitment Patterns (Top Recruiting States)")
 if filtered.empty:
     st.write("No data matches current filters.")
 else:
-    # Simple version
     state_team_counts = filtered.groupby(['state', 'teamName']).size().reset_index(name='count')
-    
-    # Calculate state totals and sort by count DESC (highest first)
     state_totals = state_team_counts.groupby('state')['count'].sum().reset_index()
     state_totals['pct'] = (state_totals['count'] / len(filtered) * 100).round(1)
-    
-    # Get top 15 states, already sorted highest to lowest
     state_totals = state_totals.sort_values('count', ascending=False).head(15)
     top_states = state_totals['state'].tolist()
-    
-    # Filter data to only top 15 states
     plot_data = state_team_counts[state_team_counts['state'].isin(top_states)].copy()
-    
-    # IMPORTANT: Use the order from state_totals (highest to lowest), NOT sorted()
-    plot_data['state'] = pd.Categorical(
-        plot_data['state'], 
-        categories=top_states,      # ← This preserves highest-to-lowest order
-        ordered=True
-    )
-    
-    # Sort the data for plotting
+    plot_data['state'] = pd.Categorical(plot_data['state'], categories=top_states, ordered=True)
     plot_data = plot_data.sort_values(['state', 'count'], ascending=[True, False])
-    
-    # Create nice labels with percentage
-    state_labels = {s: f"{s} ({state_totals.loc[state_totals['state'] == s, 'pct'].iloc[0]}%)" 
+    state_labels = {s: f"{s} ({state_totals.loc[state_totals['state'] == s, 'pct'].iloc[0]}%)"
                     for s in top_states}
     plot_data['state_label'] = plot_data['state'].map(state_labels)
-    
-    # Plot - now properly ordered highest to lowest
-    fig = px.bar(plot_data, 
-                 x='count', 
-                 y='state_label', 
-                 color='teamName', 
+   
+    fig = px.bar(plot_data,
+                 x='count',
+                 y='state_label',
+                 color='teamName',
                  orientation='h',
-                 height=700, 
+                 height=700,
                  hover_data={'count': True},
                  title="Top 15 Recruiting States by Team")
-    
+   
     fig.update_layout(
-        barmode='stack', 
-        yaxis_title="", 
+        barmode='stack',
+        yaxis_title="",
         xaxis_title="Number of Players",
-        legend_title="Team", 
-        plot_bgcolor='#0E1117', 
-        paper_bgcolor='#0E1117',
-        font_color='white', 
+        legend_title="Team",
+        plot_bgcolor=chart_paper_bg,
+        paper_bgcolor=chart_paper_bg,
+        font_color=chart_font_color,
         showlegend=True,
         legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02)
     )
-    
+   
     st.plotly_chart(fig, use_container_width=True)
-    
+
 # Players by Region
 st.subheader("Players by Region")
 if not filtered.empty:
@@ -317,9 +351,13 @@ if not filtered.empty:
     region_counts.columns = ['region', 'count']
     col1, col2 = st.columns(2)
     with col1:
-        st.plotly_chart(px.pie(region_counts, values='count', names='region', title='Players by Region (%)'), use_container_width=True)
+        fig_pie = px.pie(region_counts, values='count', names='region', title='Players by Region (%)')
+        fig_pie.update_layout(plot_bgcolor=chart_paper_bg, paper_bgcolor=chart_paper_bg, font_color=chart_font_color)
+        st.plotly_chart(fig_pie, use_container_width=True)
     with col2:
-        st.plotly_chart(px.bar(region_counts.sort_values('count', ascending=False), x='region', y='count', color='region', title='Player Count by Region'), use_container_width=True)
+        fig_bar = px.bar(region_counts.sort_values('count', ascending=False), x='region', y='count', color='region', title='Player Count by Region')
+        fig_bar.update_layout(plot_bgcolor=chart_paper_bg, paper_bgcolor=chart_paper_bg, font_color=chart_font_color)
+        st.plotly_chart(fig_bar, use_container_width=True)
 
 # Players by Team
 st.subheader("Players by Team")
@@ -328,9 +366,13 @@ if not filtered.empty:
     team_counts.columns = ['teamName', 'count']
     col1, col2 = st.columns(2)
     with col1:
-        st.plotly_chart(px.pie(team_counts.head(20), values='count', names='teamName', title='Top 20 Teams by Player Count (%)'), use_container_width=True)
+        fig_pie_team = px.pie(team_counts.head(20), values='count', names='teamName', title='Top 20 Teams by Player Count (%)')
+        fig_pie_team.update_layout(plot_bgcolor=chart_paper_bg, paper_bgcolor=chart_paper_bg, font_color=chart_font_color)
+        st.plotly_chart(fig_pie_team, use_container_width=True)
     with col2:
-        st.plotly_chart(px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count'), use_container_width=True)
+        fig_bar_team = px.bar(team_counts.head(30).sort_values('count', ascending=False), x='teamName', y='count', color='teamName', title='Top 30 Teams by Player Count')
+        fig_bar_team.update_layout(plot_bgcolor=chart_paper_bg, paper_bgcolor=chart_paper_bg, font_color=chart_font_color)
+        st.plotly_chart(fig_bar_team, use_container_width=True)
 
 # State Recruiting Breakdown by Conference Tier
 st.subheader("State Recruiting Breakdown by Conference Tier")
@@ -370,7 +412,7 @@ else:
         )
         fig.update_traces(textposition='inside', textinfo='percent+label')
         fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), showlegend=False,
-                          plot_bgcolor='#0E1117', paper_bgcolor='#0E1117', font_color='white')
+                          plot_bgcolor=chart_paper_bg, paper_bgcolor=chart_paper_bg, font_color=chart_font_color)
         st.plotly_chart(fig, use_container_width=True)
 
 # Top Performers
@@ -400,3 +442,9 @@ if 'ERA' in filtered.columns and 'IP' in filtered.columns:
 if 'SO' in filtered.columns and 'IP' in filtered.columns:
     pitcher_so = filtered[filtered['role'] == 'Pitcher'].copy()
     make_leaderboard("Top 50 Highest Strikeout Pitchers (min 50 IP)", pitcher_so, 'SO', 'IP', 50)
+
+# Exit print mode button
+if st.session_state.print_mode:
+    if st.button("← Back to Interactive Dashboard"):
+        st.session_state.print_mode = False
+        st.rerun()
